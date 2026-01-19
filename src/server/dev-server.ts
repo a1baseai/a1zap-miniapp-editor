@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import http from "http";
 import chalk from "chalk";
+import { transform } from "sucrase";
 import type { AppConfig } from "../config.js";
 import { getPreviewHTML } from "./preview.js";
 
@@ -64,13 +65,32 @@ export function startDevServer(
     }
   });
 
-  // Serve app code
+  // Serve app code (pre-transpiled)
   app.get("/app-code", (_req, res) => {
     try {
       const code = fs.readFileSync(entryPath, "utf-8");
-      res.type("text/plain").send(code);
+      
+      // Strip imports and prepare for browser execution
+      let processed = code
+        // Remove import statements
+        .replace(/^import[\s\S]*?from\s+['"][^'"]+['"];?\s*\n?/gm, '')
+        // Handle default function export
+        .replace(/export\s+default\s+function\s+(\w+)/g, 'function App')
+        // Handle default const/expression export
+        .replace(/export\s+default\s+/g, 'const App = ');
+      
+      // Transpile JSX/TypeScript to JavaScript
+      const { code: transpiled } = transform(processed, {
+        transforms: ["typescript", "jsx"],
+        jsxRuntime: "classic",
+        production: false,
+      });
+      
+      res.type("text/javascript").send(transpiled);
     } catch (err) {
-      res.status(500).send("Error reading app code");
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      console.error(chalk.red("✗ Transpilation error:"), errorMessage);
+      res.status(500).json({ error: errorMessage });
     }
   });
 

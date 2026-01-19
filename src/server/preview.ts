@@ -2,6 +2,7 @@ import type { AppConfig } from "../config.js";
 
 /**
  * Generate the preview HTML for the dev server
+ * Code is pre-transpiled server-side, so no browser-side transpilation needed
  */
 export function getPreviewHTML(config: AppConfig, port: number): string {
   return `<!DOCTYPE html>
@@ -9,10 +10,6 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
 <head>
   <title>${config.name} - A1Zap Dev</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
-  <script src="https://unpkg.com/sucrase@3/dist/sucrase.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #root { height: 100%; font-family: system-ui, -apple-system, sans-serif; }
@@ -132,7 +129,27 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
     </div>
   </div>
   
-  <script>
+  <!-- Load dependencies via esm.sh for reliable ES module support -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom": "https://esm.sh/react-dom@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.460.0?external=react"
+    }
+  }
+  </script>
+  
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+    import * as LucideIcons from 'lucide-react';
+    
+    // Expose for eval'd code
+    window.React = React;
+    window.LucideIcons = LucideIcons;
+    
     const mockUser = { 
       id: 'dev-user-123', 
       name: 'Developer', 
@@ -142,6 +159,7 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
     
     let appData = null;
     let sharedData = null;
+    let currentRoot = null;
     
     // WebSocket for hot reload
     const ws = new WebSocket('ws://localhost:${port}');
@@ -170,74 +188,48 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
       console.warn('[A1Zap Dev] WebSocket closed - hot reload disabled');
     };
     
-    // Build Lucide icon definitions
-    function buildIconDefinitions() {
-      if (typeof LucideReact === 'undefined') {
-        console.warn('[A1Zap Dev] Lucide icons not loaded');
-        return '';
-      }
-      
-      // Get all icon names from LucideReact
-      const iconNames = Object.keys(LucideReact).filter(key => {
-        // Filter to only icon components (PascalCase, not createLucideIcon etc.)
-        return /^[A-Z][a-zA-Z0-9]*$/.test(key) && 
-               typeof LucideReact[key] === 'function' &&
-               key !== 'Icon' && 
-               key !== 'createLucideIcon';
-      });
-      
-      // Generate icon definitions
-      let defs = iconNames.map(name => \`const \${name} = icons["\${name}"];\`).join('\\n');
-      
-      // Add aliases for JS built-in conflicts
-      defs += \`
-        const MapIcon = icons["Map"];
-        const ImageIcon = icons["Image"];
-        const FileIcon = icons["File"];
-        const TextIcon = icons["Type"];
-        const TableIcon = icons["Table"];
-        const LinkIcon = icons["Link"];
-        const MenuIcon = icons["Menu"];
-        const SearchIcon = icons["Search"];
-      \`;
-      
-      return defs;
-    }
-    
     async function loadApp() {
       try {
         const res = await fetch('/app-code');
-        if (!res.ok) throw new Error('Failed to fetch app code');
-        const code = await res.text();
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to fetch app code');
+        }
         
-        // Strip imports and transform
-        let processed = code
-          // Remove import statements
-          .replace(/^import[\\s\\S]*?from\\s+['"][^'"]+['"];?\\s*\\n?/gm, '')
-          // Handle default function export
-          .replace(/export\\s+default\\s+function\\s+(\\w+)/g, 'function App')
-          // Handle default const/expression export
-          .replace(/export\\s+default\\s+/g, 'const App = ');
+        // Code is already transpiled by the server
+        const transpiledCode = await res.text();
         
-        // Build icon definitions
-        const iconDefs = buildIconDefinitions();
+        // Get all icon names for injection
+        const icons = LucideIcons;
+        const iconNames = Object.keys(icons).filter(key => 
+          /^[A-Z][a-zA-Z0-9]*$/.test(key) && 
+          typeof icons[key] === 'object' &&
+          key !== 'Icon' && 
+          key !== 'createLucideIcon'
+        );
         
-        const { code: transformed } = Sucrase.transform(
-          \`(function(React, useState, useEffect, useMemo, useCallback, useRef, useContext, createContext, icons) {
+        console.log('[A1Zap Dev] Available icons:', iconNames.length);
+        
+        // Build icon variable declarations
+        const iconDefs = iconNames.map(name => \`const \${name} = icons["\${name}"];\`).join('\\n');
+        
+        // Wrap the transpiled code in a factory function
+        const wrappedCode = \`
+          (function(React, useState, useEffect, useMemo, useCallback, useRef, useContext, createContext, useReducer, useLayoutEffect, icons) {
             const { createElement, Fragment } = React;
             
             // Inject all Lucide icons
             \${iconDefs}
             
-            \${processed}
+            \${transpiledCode}
+            
             return typeof App !== 'undefined' ? App : function() { 
               return createElement('div', { style: { padding: 20 } }, 'No App component found');
             };
-          })\`,
-          { transforms: ['typescript', 'jsx'] }
-        );
+          })
+        \`;
         
-        const factory = eval(transformed);
+        const factory = eval(wrappedCode);
         const App = factory(
           React,
           React.useState,
@@ -247,16 +239,20 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
           React.useRef,
           React.useContext,
           React.createContext,
-          typeof LucideReact !== 'undefined' ? LucideReact : {}
+          React.useReducer,
+          React.useLayoutEffect,
+          icons
         );
         
         // Clear previous root
         const rootEl = document.getElementById('root');
-        rootEl.innerHTML = '';
         
-        // Create new root and render
-        const root = ReactDOM.createRoot(rootEl);
-        root.render(React.createElement(App, {
+        // Reuse existing root or create new one
+        if (!currentRoot) {
+          currentRoot = createRoot(rootEl);
+        }
+        
+        currentRoot.render(React.createElement(App, {
           user: mockUser,
           data: appData,
           setData: (d) => { 
@@ -268,6 +264,10 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
           setSharedData: (d) => { 
             sharedData = typeof d === 'function' ? d(sharedData) : d;
             console.log('[A1Zap Dev] Shared data updated:', sharedData);
+          },
+          patchSharedData: (patch) => {
+            sharedData = { ...sharedData, ...patch };
+            console.log('[A1Zap Dev] Shared data patched:', sharedData);
           },
           members: [mockUser],
           memberActivity: {},
