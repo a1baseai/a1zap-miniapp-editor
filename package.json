@@ -39,6 +39,12 @@
   },
   "files": [
     "dist",
-    "bin"
-  ]
+    "bin",
+    "install.sh",
+    "uninstall.sh"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/a1zap/a1zap-miniapp-editor.git"
+  }
 }

@@ -2,11 +2,32 @@
 
 CLI tool for local development of A1Zap MicroApps.
 
-## Installation
+## Quick Install (Recommended)
+
+Copy and paste this into your Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/a1zap/a1zap-miniapp-editor/main/install.sh | bash
+```
+
+Then restart your terminal and configure your API key:
+
+```bash
+a1zap config "your-api-key"
+```
+
+That's it! Run `a1zap list` to see your apps.
+
+---
+
+<details>
+<summary>Alternative: Install via npm</summary>
 
 ```bash
 npm install -g a1zap-miniapp-editor
 ```
+
+</details>
 
 ## Setup
 
@@ -141,6 +162,17 @@ npm link      # Link globally for testing
 ## Environment Variables
 
 - `A1ZAP_API_URL` - Override the API URL (default: https://a1zap.com)
+
+## Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/a1zap/a1zap-miniapp-editor/main/uninstall.sh | bash
+```
+
+Or manually:
+```bash
+rm -rf ~/.a1zap/cli ~/.local/bin/a1zap
+```
 
 ## License
 
