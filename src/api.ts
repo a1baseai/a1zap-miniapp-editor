@@ -26,7 +26,9 @@ export interface AppCode {
 export interface PushResult {
   success: boolean;
   version: number;
+  revision: number;
   message: string;
+  draftWarning?: string;
 }
 
 export class ApiError extends Error {

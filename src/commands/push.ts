@@ -77,9 +77,14 @@ export async function pushCommand(
     console.log("");
     console.log(
       chalk.green("✓") +
-        ` Pushed ${chalk.bold(appConfig.name)} → v${result.version}`
+        ` Published ${chalk.bold(appConfig.name)} v${result.version} (revision #${result.revision})`
     );
-    console.log(chalk.dim(`  ${commitMessage}`));
+    console.log(chalk.dim(`  "${commitMessage}"`));
+    
+    if (result.draftWarning) {
+      console.log(chalk.yellow("⚠") + ` ${result.draftWarning}`);
+    }
+    
     console.log("");
   } catch (error) {
     if (error instanceof Error) {
