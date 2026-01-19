@@ -1,0 +1,147 @@
+# a1zap-miniapp-editor
+
+CLI tool for local development of A1Zap MicroApps.
+
+## Installation
+
+```bash
+npm install -g a1zap-miniapp-editor
+```
+
+## Setup
+
+Configure your API key:
+
+```bash
+a1zap config "your-developer-api-key"
+```
+
+The API key is stored in `~/.a1zap/config.json`.
+
+## Commands
+
+### List Apps
+
+List all available apps with their local status:
+
+```bash
+a1zap list
+```
+
+Output shows which apps are pulled locally and if they're outdated:
+
+```
+  Remote Apps                          Local
+  ──────────────────────────────────────────────
+  @sit-stay-board      v12             [pulled]
+  @pet-tracker         v5              [pulled] (outdated v3)
+  @new-app             v1              -
+
+  Local apps: ~/.a1zap/apps/
+```
+
+### Pull an App
+
+Download an app to your local workspace:
+
+```bash
+a1zap pull @my-app
+# or by ID:
+a1zap pull xs726ffzxzmra3rawxqbtgmryh7zge0s
+```
+
+Apps are stored in `~/.a1zap/apps/<handle>/`.
+
+### Start Development Server
+
+Start the dev server with hot reload:
+
+```bash
+# By handle (from anywhere):
+a1zap dev @my-app
+
+# Or from inside an app folder:
+cd ~/.a1zap/apps/my-app
+a1zap dev
+
+# Custom port:
+a1zap dev @my-app -p 3000
+```
+
+The dev server provides:
+- Live preview at http://localhost:4321
+- Hot reload on file changes
+- Mock user context for testing
+
+### Push Changes
+
+Push your local changes back to A1Zap:
+
+```bash
+# By handle (from anywhere):
+a1zap push @my-app -m "Fixed button styling"
+
+# Or from inside an app folder:
+a1zap push -m "Updated layout"
+```
+
+### Open App Folder
+
+Print the path to an app's folder (useful for shell navigation):
+
+```bash
+# Navigate to app folder:
+cd $(a1zap open my-app)
+
+# Or just print the path:
+a1zap open my-app
+```
+
+## Project Structure
+
+Each pulled app has this structure:
+
+```
+~/.a1zap/apps/<handle>/
+├── a1zap.json    # App metadata
+├── App.tsx       # Main component
+└── styles.css    # Optional CSS
+```
+
+### a1zap.json
+
+```json
+{
+  "appId": "abc123",
+  "name": "My App",
+  "handle": "my-app",
+  "entryFile": "App.tsx",
+  "version": 5
+}
+```
+
+## Development
+
+### Building from Source
+
+```bash
+git clone <repo>
+cd a1zap-miniapp-editor
+npm install
+npm run build
+```
+
+### Local Development
+
+```bash
+npm run dev   # Watch mode
+npm link      # Link globally for testing
+```
+
+## Environment Variables
+
+- `A1ZAP_API_URL` - Override the API URL (default: https://a1zap.com)
+
+## License
+
+MIT
