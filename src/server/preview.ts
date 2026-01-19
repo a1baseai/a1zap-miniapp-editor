@@ -11,6 +11,7 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
   <script src="https://unpkg.com/sucrase@3/dist/sucrase.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -169,6 +170,40 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
       console.warn('[A1Zap Dev] WebSocket closed - hot reload disabled');
     };
     
+    // Build Lucide icon definitions
+    function buildIconDefinitions() {
+      if (typeof LucideReact === 'undefined') {
+        console.warn('[A1Zap Dev] Lucide icons not loaded');
+        return '';
+      }
+      
+      // Get all icon names from LucideReact
+      const iconNames = Object.keys(LucideReact).filter(key => {
+        // Filter to only icon components (PascalCase, not createLucideIcon etc.)
+        return /^[A-Z][a-zA-Z0-9]*$/.test(key) && 
+               typeof LucideReact[key] === 'function' &&
+               key !== 'Icon' && 
+               key !== 'createLucideIcon';
+      });
+      
+      // Generate icon definitions
+      let defs = iconNames.map(name => \`const \${name} = icons["\${name}"];\`).join('\\n');
+      
+      // Add aliases for JS built-in conflicts
+      defs += \`
+        const MapIcon = icons["Map"];
+        const ImageIcon = icons["Image"];
+        const FileIcon = icons["File"];
+        const TextIcon = icons["Type"];
+        const TableIcon = icons["Table"];
+        const LinkIcon = icons["Link"];
+        const MenuIcon = icons["Menu"];
+        const SearchIcon = icons["Search"];
+      \`;
+      
+      return defs;
+    }
+    
     async function loadApp() {
       try {
         const res = await fetch('/app-code');
@@ -184,9 +219,16 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
           // Handle default const/expression export
           .replace(/export\\s+default\\s+/g, 'const App = ');
         
+        // Build icon definitions
+        const iconDefs = buildIconDefinitions();
+        
         const { code: transformed } = Sucrase.transform(
-          \`(function(React, useState, useEffect, useMemo, useCallback, useRef, useContext, createContext) {
+          \`(function(React, useState, useEffect, useMemo, useCallback, useRef, useContext, createContext, icons) {
             const { createElement, Fragment } = React;
+            
+            // Inject all Lucide icons
+            \${iconDefs}
+            
             \${processed}
             return typeof App !== 'undefined' ? App : function() { 
               return createElement('div', { style: { padding: 20 } }, 'No App component found');
@@ -204,7 +246,8 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
           React.useCallback,
           React.useRef,
           React.useContext,
-          React.createContext
+          React.createContext,
+          typeof LucideReact !== 'undefined' ? LucideReact : {}
         );
         
         // Clear previous root
