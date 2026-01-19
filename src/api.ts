@@ -114,7 +114,7 @@ export async function listApps(): Promise<RemoteApp[]> {
 export async function getAppCode(appId: string): Promise<AppCode> {
   const result = await apiRequest<AppCode | null>(
     "GET",
-    `/api/developer/apps/${appId}`
+    `/api/developer/apps/${appId}/code`
   );
   if (!result) {
     throw new ApiError("App not found", 404);
@@ -130,10 +130,17 @@ export async function pushAppCode(
   code: string,
   commitMessage: string
 ): Promise<PushResult> {
-  return apiRequest<PushResult>("POST", `/api/developer/apps/${appId}`, {
+  return apiRequest<PushResult>("PUT", `/api/developer/apps/${appId}/code`, {
     code,
     commitMessage,
   });
+}
+
+/**
+ * API response for getting a single app by handle
+ */
+interface GetAppByHandleResponse {
+  app: RemoteApp | null;
 }
 
 /**
@@ -143,13 +150,13 @@ export async function findAppByHandle(handle: string): Promise<RemoteApp | null>
   // Remove @ prefix if present
   const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
   
-  // Use the handle query parameter for more efficient lookup
+  // Use the handle query parameter for direct lookup
   try {
-    const response = await apiRequest<ListAppsResponse>(
+    const response = await apiRequest<GetAppByHandleResponse>(
       "GET",
       `/api/developer/apps?handle=${encodeURIComponent(cleanHandle)}`
     );
-    return response.apps.find((app) => app.handle === cleanHandle) || null;
+    return response.app || null;
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return null;
