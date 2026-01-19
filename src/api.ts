@@ -40,12 +40,24 @@ export class ApiError extends Error {
 }
 
 /**
- * Make an authenticated request to the A1Zap API
+ * Convex HTTP API response format
+ * @see https://docs.convex.dev/http-api/
  */
-async function apiRequest<T>(
-  method: string,
-  endpoint: string,
-  body?: unknown
+interface ConvexResponse<T> {
+  status: "success" | "error";
+  value?: T;
+  errorMessage?: string;
+  errorData?: unknown;
+  logLines?: string[];
+}
+
+/**
+ * Call a Convex query function via HTTP API
+ * @see https://docs.convex.dev/http-api/
+ */
+async function convexQuery<T>(
+  functionPath: string,
+  args: Record<string, unknown> = {}
 ): Promise<T> {
   const config = getConfig();
   if (!config.apiKey) {
@@ -53,44 +65,91 @@ async function apiRequest<T>(
   }
 
   const apiUrl = getApiUrl();
-  const url = `${apiUrl}${endpoint}`;
+  const url = `${apiUrl}/api/query`;
 
   const response = await fetch(url, {
-    method,
+    method: "POST",
     headers: {
-      "X-API-Key": config.apiKey,
       "Content-Type": "application/json",
+      // Pass API key in args for the function to validate
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: JSON.stringify({
+      path: functionPath,
+      args: { ...args, apiKey: config.apiKey },
+      format: "json",
+    }),
   });
 
   if (!response.ok) {
-    let errorMessage = response.statusText;
-    try {
-      const errorBody = (await response.json()) as { error?: string; message?: string };
-      errorMessage = errorBody.error || errorBody.message || errorMessage;
-    } catch {
-      // Ignore JSON parse errors
-    }
-    throw new ApiError(errorMessage, response.status);
+    throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, response.status);
   }
 
-  return response.json() as Promise<T>;
+  const result = (await response.json()) as ConvexResponse<T>;
+
+  if (result.status === "error") {
+    throw new ApiError(result.errorMessage || "Unknown error", 400);
+  }
+
+  return result.value as T;
+}
+
+/**
+ * Call a Convex mutation function via HTTP API
+ * @see https://docs.convex.dev/http-api/
+ */
+async function convexMutation<T>(
+  functionPath: string,
+  args: Record<string, unknown> = {}
+): Promise<T> {
+  const config = getConfig();
+  if (!config.apiKey) {
+    throw new Error("Not configured. Run: a1zap config <api-key>");
+  }
+
+  const apiUrl = getApiUrl();
+  const url = `${apiUrl}/api/mutation`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      path: functionPath,
+      args: { ...args, apiKey: config.apiKey },
+      format: "json",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, response.status);
+  }
+
+  const result = (await response.json()) as ConvexResponse<T>;
+
+  if (result.status === "error") {
+    throw new ApiError(result.errorMessage || "Unknown error", 400);
+  }
+
+  return result.value as T;
 }
 
 /**
  * List all available apps
  */
 export async function listApps(): Promise<RemoteApp[]> {
-  const result = await apiRequest<{ apps: RemoteApp[] }>("GET", "/api/developer/apps");
-  return result.apps;
+  return convexQuery<RemoteApp[]>("developer:listAllApps", {});
 }
 
 /**
  * Get app code by ID
  */
 export async function getAppCode(appId: string): Promise<AppCode> {
-  return apiRequest<AppCode>("GET", `/api/developer/apps/${appId}/code`);
+  const result = await convexQuery<AppCode | null>("developer:getAppCode", { appId });
+  if (!result) {
+    throw new ApiError("App not found", 404);
+  }
+  return result;
 }
 
 /**
@@ -101,7 +160,8 @@ export async function pushAppCode(
   code: string,
   commitMessage: string
 ): Promise<PushResult> {
-  return apiRequest<PushResult>("PUT", `/api/developer/apps/${appId}/code`, {
+  return convexMutation<PushResult>("developer:updateAppCode", {
+    appId,
     code,
     commitMessage,
   });

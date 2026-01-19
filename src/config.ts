@@ -22,8 +22,8 @@ export const CONFIG_DIR = path.join(os.homedir(), ".a1zap");
 export const APPS_DIR = path.join(CONFIG_DIR, "apps");
 export const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 
-// Default API URL
-export const DEFAULT_API_URL = "https://a1zap.com";
+// Default API URL (Convex HTTP endpoint)
+export const DEFAULT_API_URL = "https://dusty-sandpiper-500.convex.cloud";
 
 /**
  * Ensure the config directory structure exists
