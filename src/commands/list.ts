@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { listApps, RemoteApp } from "../api.js";
-import { listLocalApps, APPS_DIR } from "../config.js";
+import { listApps } from "../api.js";
+import { listLocalApps, getWorkspace } from "../config.js";
 
 /**
  * List all available apps with local status
@@ -41,7 +41,7 @@ export async function listCommand(): Promise<void> {
     }
 
     console.log("");
-    console.log(chalk.dim(`  Local apps: ${APPS_DIR}`));
+    console.log(chalk.dim(`  Workspace: ${getWorkspace()}`));
     console.log("");
   } catch (error) {
     if (error instanceof Error) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import { configCommand, showConfigCommand } from "./commands/config.js";
+import { configCommand, showConfigCommand, setWorkspaceCommand } from "./commands/config.js";
 import { listCommand } from "./commands/list.js";
 import { pullCommand } from "./commands/pull.js";
 import { pushCommand } from "./commands/push.js";
@@ -15,9 +15,12 @@ program
 // Config command
 program
   .command("config [apiKey]")
-  .description("Set or show API key configuration")
-  .action(async (apiKey?: string) => {
-    if (apiKey) {
+  .description("Set or show configuration (API key, workspace)")
+  .option("-w, --workspace <path>", "Set the workspace directory for apps")
+  .action(async (apiKey: string | undefined, options: { workspace?: string }) => {
+    if (options.workspace) {
+      await setWorkspaceCommand(options.workspace);
+    } else if (apiKey) {
       await configCommand(apiKey);
     } else {
       await showConfigCommand();
@@ -36,9 +39,11 @@ program
 // Pull command
 program
   .command("pull <appIdOrHandle>")
-  .description("Download app code to local workspace (~/.a1zap/apps/)")
+  .description("Download app code to local workspace")
   .option("-f, --force", "Overwrite existing local files")
-  .action(async (appIdOrHandle: string, options: { force?: boolean }) => {
+  .option("--here", "Pull to current directory instead of workspace")
+  .option("-d, --dir <path>", "Pull to a specific directory")
+  .action(async (appIdOrHandle: string, options: { force?: boolean; here?: boolean; dir?: string }) => {
     await pullCommand(appIdOrHandle, options);
   });
 

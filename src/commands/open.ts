@@ -1,6 +1,5 @@
-import chalk from "chalk";
 import fs from "fs";
-import { getAppPath, appExistsLocally } from "../config.js";
+import { getAppPath, getWorkspace, appExistsLocally } from "../config.js";
 
 /**
  * Print the path to an app's directory
@@ -24,13 +23,13 @@ export async function openCommand(handle: string): Promise<void> {
  * List all local app paths (for shell completion)
  */
 export async function listLocalPathsCommand(): Promise<void> {
-  const { APPS_DIR } = await import("../config.js");
+  const workspace = getWorkspace();
 
-  if (!fs.existsSync(APPS_DIR)) {
+  if (!fs.existsSync(workspace)) {
     return;
   }
 
-  const entries = fs.readdirSync(APPS_DIR, { withFileTypes: true });
+  const entries = fs.readdirSync(workspace, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) {
       console.log(entry.name);

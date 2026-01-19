@@ -4,13 +4,38 @@ import path from "path";
 import { findAppByHandle, getAppCode } from "../api.js";
 import {
   getAppPath,
-  saveAppConfig,
+  saveAppConfigToPath,
   appExistsLocally,
+  appExistsAtPath,
   AppConfig,
+  getWorkspace,
 } from "../config.js";
 
 interface PullOptions {
   force?: boolean;
+  here?: boolean;
+  dir?: string;
+}
+
+/**
+ * Determine the target directory for pulling an app
+ */
+function getTargetPath(handle: string, options: PullOptions): string {
+  const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
+
+  if (options.here) {
+    // Pull to current directory with app name as subfolder
+    return path.join(process.cwd(), cleanHandle);
+  }
+
+  if (options.dir) {
+    // Pull to specified directory with app name as subfolder
+    const resolvedDir = path.resolve(options.dir);
+    return path.join(resolvedDir, cleanHandle);
+  }
+
+  // Default: pull to workspace
+  return getAppPath(handle);
 }
 
 /**
@@ -36,19 +61,31 @@ export async function pullCommand(
       handle = app.handle;
     }
 
-    // Check if already exists locally
-    if (appExistsLocally(handle) && !options.force) {
-      console.log(
-        chalk.yellow("!") +
-          ` App already exists locally. Use ${chalk.bold("--force")} to overwrite.`
-      );
+    // Determine target path
+    const appPath = getTargetPath(handle, options);
+
+    // Check if already exists
+    const existsInWorkspace = appExistsLocally(handle);
+    const existsAtTarget = appExistsAtPath(appPath);
+
+    if ((existsInWorkspace || existsAtTarget) && !options.force) {
+      if (existsAtTarget) {
+        console.log(
+          chalk.yellow("!") +
+            ` App already exists at ${chalk.cyan(appPath)}`
+        );
+      } else {
+        console.log(
+          chalk.yellow("!") +
+            ` App already exists in workspace at ${chalk.cyan(getAppPath(handle))}`
+        );
+      }
+      console.log(`  Use ${chalk.bold("--force")} to overwrite.`);
       process.exit(1);
     }
 
     console.log(chalk.dim(`Pulling app ${appId}...`));
     const appCode = await getAppCode(appId);
-
-    const appPath = getAppPath(appCode.handle);
 
     // Create directory if needed
     if (!fs.existsSync(appPath)) {
@@ -65,7 +102,7 @@ export async function pullCommand(
       designSystem: appCode.designSystem,
       appConfig: appCode.appConfig,
     };
-    saveAppConfig(appCode.handle, config);
+    saveAppConfigToPath(appPath, config);
 
     // Write code file
     fs.writeFileSync(path.join(appPath, "App.tsx"), appCode.code);
@@ -86,7 +123,14 @@ export async function pullCommand(
       console.log(`    - styles.css (${appCode.css.length} bytes)`);
     }
     console.log("");
-    console.log(`  Next: ${chalk.bold(`a1zap dev @${appCode.handle}`)}`);
+
+    // Show next steps based on location
+    if (options.here || options.dir) {
+      console.log(`  Next: ${chalk.bold(`cd ${path.basename(appPath)} && a1zap dev`)}`);
+    } else {
+      console.log(`  Workspace: ${chalk.dim(getWorkspace())}`);
+      console.log(`  Next: ${chalk.bold(`cd $(a1zap open ${appCode.handle}) && cursor .`)}`);
+    }
     console.log("");
   } catch (error) {
     if (error instanceof Error) {

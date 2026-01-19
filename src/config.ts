@@ -5,6 +5,7 @@ import os from "os";
 export interface A1ZapConfig {
   apiKey: string | null;
   apiUrl?: string;
+  workspace?: string;
 }
 
 export interface AppConfig {
@@ -17,23 +18,22 @@ export interface AppConfig {
   appConfig?: unknown;
 }
 
-// Base directories
+// Config directory (hidden, for credentials only)
 export const CONFIG_DIR = path.join(os.homedir(), ".a1zap");
-export const APPS_DIR = path.join(CONFIG_DIR, "apps");
 export const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
+
+// Default workspace (visible, for apps)
+export const DEFAULT_WORKSPACE = path.join(os.homedir(), "a1zap-apps");
 
 // Default API URL (Next.js app - using www to avoid redirect)
 export const DEFAULT_API_URL = "https://www.a1zap.com";
 
 /**
- * Ensure the config directory structure exists
+ * Ensure the config directory exists
  */
 export function ensureConfigDir(): void {
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(APPS_DIR)) {
-    fs.mkdirSync(APPS_DIR, { recursive: true });
   }
 }
 
@@ -68,12 +68,29 @@ export function getApiUrl(): string {
 }
 
 /**
- * Get the path to an app's directory
+ * Get the workspace directory (where apps are stored)
+ */
+export function getWorkspace(): string {
+  return process.env.A1ZAP_WORKSPACE || getConfig().workspace || DEFAULT_WORKSPACE;
+}
+
+/**
+ * Ensure the workspace directory exists
+ */
+export function ensureWorkspace(): void {
+  const workspace = getWorkspace();
+  if (!fs.existsSync(workspace)) {
+    fs.mkdirSync(workspace, { recursive: true });
+  }
+}
+
+/**
+ * Get the path to an app's directory in the default workspace
  */
 export function getAppPath(handle: string): string {
   // Remove @ prefix if present
   const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
-  return path.join(APPS_DIR, cleanHandle);
+  return path.join(getWorkspace(), cleanHandle);
 }
 
 /**
@@ -84,14 +101,21 @@ export function getAppConfigPath(handle: string): string {
 }
 
 /**
- * Check if an app exists locally
+ * Check if an app exists locally (in the workspace)
  */
 export function appExistsLocally(handle: string): boolean {
   return fs.existsSync(getAppConfigPath(handle));
 }
 
 /**
- * Read an app's local config
+ * Check if an app exists at a specific path
+ */
+export function appExistsAtPath(appPath: string): boolean {
+  return fs.existsSync(path.join(appPath, "a1zap.json"));
+}
+
+/**
+ * Read an app's local config from the workspace
  */
 export function getAppConfig(handle: string): AppConfig | null {
   const configPath = getAppConfigPath(handle);
@@ -106,7 +130,22 @@ export function getAppConfig(handle: string): AppConfig | null {
 }
 
 /**
- * Save an app's local config
+ * Read an app's config from a specific path
+ */
+export function getAppConfigFromPath(appPath: string): AppConfig | null {
+  const configPath = path.join(appPath, "a1zap.json");
+  if (!fs.existsSync(configPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save an app's local config to the workspace
  */
 export function saveAppConfig(handle: string, config: AppConfig): void {
   const appPath = getAppPath(handle);
@@ -120,20 +159,33 @@ export function saveAppConfig(handle: string, config: AppConfig): void {
 }
 
 /**
- * List all locally pulled apps
+ * Save an app's config to a specific path
+ */
+export function saveAppConfigToPath(appPath: string, config: AppConfig): void {
+  if (!fs.existsSync(appPath)) {
+    fs.mkdirSync(appPath, { recursive: true });
+  }
+  fs.writeFileSync(
+    path.join(appPath, "a1zap.json"),
+    JSON.stringify(config, null, 2)
+  );
+}
+
+/**
+ * List all locally pulled apps in the workspace
  */
 export function listLocalApps(): AppConfig[] {
-  ensureConfigDir();
-  if (!fs.existsSync(APPS_DIR)) {
+  const workspace = getWorkspace();
+  if (!fs.existsSync(workspace)) {
     return [];
   }
 
   const apps: AppConfig[] = [];
-  const entries = fs.readdirSync(APPS_DIR, { withFileTypes: true });
+  const entries = fs.readdirSync(workspace, { withFileTypes: true });
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const config = getAppConfig(entry.name);
+      const config = getAppConfigFromPath(path.join(workspace, entry.name));
       if (config) {
         apps.push(config);
       }
