@@ -40,112 +40,82 @@ export class ApiError extends Error {
 }
 
 /**
- * Convex HTTP API response format
- * @see https://docs.convex.dev/http-api/
+ * Get authorization headers for API requests
  */
-interface ConvexResponse<T> {
-  status: "success" | "error";
-  value?: T;
-  errorMessage?: string;
-  errorData?: unknown;
-  logLines?: string[];
-}
-
-/**
- * Call a Convex query function via HTTP API
- * @see https://docs.convex.dev/http-api/
- */
-async function convexQuery<T>(
-  functionPath: string,
-  args: Record<string, unknown> = {}
-): Promise<T> {
+function getAuthHeaders(): Record<string, string> {
   const config = getConfig();
   if (!config.apiKey) {
     throw new Error("Not configured. Run: a1zap config <api-key>");
   }
 
-  const apiUrl = getApiUrl();
-  const url = `${apiUrl}/api/query`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      // Pass API key in args for the function to validate
-    },
-    body: JSON.stringify({
-      path: functionPath,
-      args: { ...args, apiKey: config.apiKey },
-      format: "json",
-    }),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, response.status);
-  }
-
-  const result = (await response.json()) as ConvexResponse<T>;
-
-  if (result.status === "error") {
-    throw new ApiError(result.errorMessage || "Unknown error", 400);
-  }
-
-  return result.value as T;
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${config.apiKey}`,
+  };
 }
 
 /**
- * Call a Convex mutation function via HTTP API
- * @see https://docs.convex.dev/http-api/
+ * Make an authenticated API request to the Next.js backend
  */
-async function convexMutation<T>(
-  functionPath: string,
-  args: Record<string, unknown> = {}
+async function apiRequest<T>(
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  endpoint: string,
+  body?: Record<string, unknown>
 ): Promise<T> {
-  const config = getConfig();
-  if (!config.apiKey) {
-    throw new Error("Not configured. Run: a1zap config <api-key>");
+  const apiUrl = getApiUrl();
+  const url = `${apiUrl}${endpoint}`;
+
+  const options: RequestInit = {
+    method,
+    headers: getAuthHeaders(),
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
   }
 
-  const apiUrl = getApiUrl();
-  const url = `${apiUrl}/api/mutation`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      path: functionPath,
-      args: { ...args, apiKey: config.apiKey },
-      format: "json",
-    }),
-  });
+  const response = await fetch(url, options);
 
   if (!response.ok) {
-    throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, response.status);
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = (await response.json()) as { error?: string };
+      if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // Use default error message
+    }
+    throw new ApiError(errorMessage, response.status);
   }
 
-  const result = (await response.json()) as ConvexResponse<T>;
+  return response.json() as Promise<T>;
+}
 
-  if (result.status === "error") {
-    throw new ApiError(result.errorMessage || "Unknown error", 400);
-  }
-
-  return result.value as T;
+/**
+ * API response for listing apps
+ */
+interface ListAppsResponse {
+  apps: RemoteApp[];
+  count: number;
 }
 
 /**
  * List all available apps
  */
 export async function listApps(): Promise<RemoteApp[]> {
-  return convexQuery<RemoteApp[]>("developer:listAllApps", {});
+  const response = await apiRequest<ListAppsResponse>("GET", "/api/developer/apps");
+  return response.apps;
 }
 
 /**
  * Get app code by ID
  */
 export async function getAppCode(appId: string): Promise<AppCode> {
-  const result = await convexQuery<AppCode | null>("developer:getAppCode", { appId });
+  const result = await apiRequest<AppCode | null>(
+    "GET",
+    `/api/developer/apps/${appId}`
+  );
   if (!result) {
     throw new ApiError("App not found", 404);
   }
@@ -160,8 +130,7 @@ export async function pushAppCode(
   code: string,
   commitMessage: string
 ): Promise<PushResult> {
-  return convexMutation<PushResult>("developer:updateAppCode", {
-    appId,
+  return apiRequest<PushResult>("POST", `/api/developer/apps/${appId}`, {
     code,
     commitMessage,
   });
@@ -173,6 +142,18 @@ export async function pushAppCode(
 export async function findAppByHandle(handle: string): Promise<RemoteApp | null> {
   // Remove @ prefix if present
   const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
-  const apps = await listApps();
-  return apps.find((app) => app.handle === cleanHandle) || null;
+  
+  // Use the handle query parameter for more efficient lookup
+  try {
+    const response = await apiRequest<ListAppsResponse>(
+      "GET",
+      `/api/developer/apps?handle=${encodeURIComponent(cleanHandle)}`
+    );
+    return response.apps.find((app) => app.handle === cleanHandle) || null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
