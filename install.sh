@@ -53,14 +53,14 @@ echo -e "${YELLOW}→${NC} Downloading A1Zap CLI..."
 mkdir -p "$HOME/.a1zap"
 
 if command -v git &> /dev/null; then
-    git clone --depth 1 https://github.com/a1zap/a1zap-miniapp-editor.git "$INSTALL_DIR" 2>/dev/null || {
+    git clone --depth 1 https://github.com/a1baseai/a1zap-miniapp-editor.git "$INSTALL_DIR" 2>/dev/null || {
         echo -e "${RED}✗ Failed to clone repository${NC}"
         echo "  Make sure you have access to the repository."
         exit 1
     }
 else
     # Fallback: download tarball if git not available
-    curl -sL https://github.com/a1zap/a1zap-miniapp-editor/archive/main.tar.gz | tar xz -C "$HOME/.a1zap"
+    curl -sL https://github.com/a1baseai/a1zap-miniapp-editor/archive/main.tar.gz | tar xz -C "$HOME/.a1zap"
     mv "$HOME/.a1zap/a1zap-miniapp-editor-main" "$INSTALL_DIR"
 fi
 

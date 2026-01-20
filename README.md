@@ -7,7 +7,7 @@ CLI tool for local development of A1Zap MicroApps.
 Copy and paste this into your Terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/a1zap/a1zap-miniapp-editor/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/a1baseai/a1zap-miniapp-editor/main/install.sh | bash
 ```
 
 Then restart your terminal and configure your API key:
@@ -166,7 +166,7 @@ npm link      # Link globally for testing
 ## Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/a1zap/a1zap-miniapp-editor/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/a1baseai/a1zap-miniapp-editor/main/uninstall.sh | bash
 ```
 
 Or manually:
