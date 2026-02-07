@@ -31,6 +31,78 @@ export interface PushResult {
   draftWarning?: string;
 }
 
+export type PublicationStatus =
+  | "draft"
+  | "private"
+  | "unlisted"
+  | "public"
+  | "community_only";
+
+export type CommunitySubmissionStatus = "pending" | "approved";
+
+export interface CreateTemplateAppParams {
+  handle: string;
+  name?: string;
+  description?: string;
+  ownerUserId?: string;
+  ownerHandle?: string;
+  ownerStackAuthId?: string;
+  publicationStatus?: PublicationStatus;
+  communityId?: string;
+  communityHandle?: string;
+  communitySubmissionStatus?: CommunitySubmissionStatus;
+  communityDescription?: string;
+  isFeaturedInCommunity?: boolean;
+}
+
+export interface CreateTemplateAppResult {
+  app: {
+    id: string;
+    name: string;
+    handle: string;
+    description?: string;
+    publicationStatus: PublicationStatus;
+    ownerId: string;
+    version: number;
+  };
+  communityLink: {
+    submissionId: string;
+    communityId: string;
+    communityHandle: string;
+    status: CommunitySubmissionStatus;
+    communityInstanceId: string | null;
+    alreadyExisted: boolean;
+    wasUpdated: boolean;
+  } | null;
+}
+
+export interface AttachAppToCommunityParams {
+  communityId?: string;
+  communityHandle?: string;
+  status?: CommunitySubmissionStatus;
+  communityDescription?: string;
+  isFeatured?: boolean;
+  publicationStatus?: PublicationStatus;
+}
+
+export interface AttachAppToCommunityResult {
+  app: {
+    id: string;
+    handle: string;
+    name: string;
+    publicationStatus: PublicationStatus;
+  };
+  communityLink: {
+    submissionId: string;
+    communityId: string;
+    communityHandle: string;
+    status: CommunitySubmissionStatus;
+    communityInstanceId: string | null;
+    alreadyExisted: boolean;
+    wasUpdated: boolean;
+  };
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -81,8 +153,10 @@ async function apiRequest<T>(
   if (!response.ok) {
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
     try {
-      const errorData = (await response.json()) as { error?: string };
-      if (errorData.error) {
+      const errorData = (await response.json()) as { error?: string; message?: string };
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
         errorMessage = errorData.error;
       }
     } catch {
@@ -165,4 +239,29 @@ export async function findAppByHandle(handle: string): Promise<RemoteApp | null>
     }
     throw error;
   }
+}
+
+/**
+ * Create a hello-world template app for a target owner.
+ */
+export async function createTemplateApp(
+  params: CreateTemplateAppParams
+): Promise<CreateTemplateAppResult> {
+  return apiRequest<CreateTemplateAppResult>("POST", "/api/developer/apps", {
+    ...params,
+  });
+}
+
+/**
+ * Attach an existing app to a community.
+ */
+export async function attachAppToCommunity(
+  appId: string,
+  params: AttachAppToCommunityParams
+): Promise<AttachAppToCommunityResult> {
+  return apiRequest<AttachAppToCommunityResult>(
+    "POST",
+    `/api/developer/apps/${appId}/community`,
+    { ...params }
+  );
 }

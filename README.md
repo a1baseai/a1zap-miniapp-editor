@@ -73,6 +73,52 @@ a1zap pull xs726ffzxzmra3rawxqbtgmryh7zge0s
 
 Apps are stored in `~/.a1zap/apps/<handle>/`.
 
+### Create a Template App (Admin)
+
+Create a hello-world template mini app for a specific owner:
+
+```bash
+# Use owner handle
+a1zap create my-new-app \
+  --owner alice \
+  --name "My New App"
+
+# Or use owner user ID / Stack Auth ID
+a1zap create my-new-app --owner-id <userId>
+a1zap create my-new-app --owner-stack-auth-id <stackAuthUserId>
+```
+
+Create and auto-attach to a community:
+
+```bash
+a1zap create my-new-app \
+  --owner alice \
+  --community-handle stanford \
+  --community-status approved
+```
+
+Useful options:
+- `--publication draft|private|unlisted|public|community_only`
+- `--community-description "Custom copy for this community"`
+- `--featured`
+- `--pull` (also supports `--force`)
+
+### Attach Existing App to a Community
+
+Attach an existing app by handle or ID:
+
+```bash
+a1zap attach @my-new-app \
+  --community-handle stanford \
+  --status approved
+```
+
+Useful options:
+- `--status pending|approved`
+- `--publication draft|private|unlisted|public|community_only`
+- `--community-description "Custom copy for this community"`
+- `--featured`
+
 ### Start Development Server
 
 Start the dev server with hot reload:
