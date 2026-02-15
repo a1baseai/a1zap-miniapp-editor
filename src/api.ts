@@ -53,6 +53,7 @@ export interface CreateTemplateAppParams {
   communitySubmissionStatus?: CommunitySubmissionStatus;
   communityDescription?: string;
   isFeaturedInCommunity?: boolean;
+  templateCode?: string;
 }
 
 export interface CreateTemplateAppResult {
@@ -101,6 +102,47 @@ export interface AttachAppToCommunityResult {
     alreadyExisted: boolean;
     wasUpdated: boolean;
   };
+}
+
+export interface CopyAppParams {
+  handle: string;
+  name?: string;
+  description?: string;
+  ownerUserId?: string;
+  ownerHandle?: string;
+  ownerStackAuthId?: string;
+  publicationStatus?: PublicationStatus;
+  communityId?: string;
+  communityHandle?: string;
+  communitySubmissionStatus?: CommunitySubmissionStatus;
+  communityDescription?: string;
+  isFeaturedInCommunity?: boolean;
+}
+
+export interface CopyAppResult {
+  sourceApp: {
+    id: string;
+    handle: string;
+    name: string;
+  };
+  app: {
+    id: string;
+    name: string;
+    handle: string;
+    description?: string;
+    publicationStatus: PublicationStatus;
+    ownerId: string;
+    version: number;
+  };
+  communityLink: {
+    submissionId: string;
+    communityId: string;
+    communityHandle: string;
+    status: CommunitySubmissionStatus;
+    communityInstanceId: string | null;
+    alreadyExisted: boolean;
+    wasUpdated: boolean;
+  } | null;
 }
 
 export class ApiError extends Error {
@@ -262,6 +304,20 @@ export async function attachAppToCommunity(
   return apiRequest<AttachAppToCommunityResult>(
     "POST",
     `/api/developer/apps/${appId}/community`,
+    { ...params }
+  );
+}
+
+/**
+ * Copy an existing app into a new app record.
+ */
+export async function copyAppToNewRecord(
+  sourceAppId: string,
+  params: CopyAppParams
+): Promise<CopyAppResult> {
+  return apiRequest<CopyAppResult>(
+    "POST",
+    `/api/developer/apps/${sourceAppId}/copy`,
     { ...params }
   );
 }

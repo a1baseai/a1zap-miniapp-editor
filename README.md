@@ -75,9 +75,12 @@ Apps are stored in `~/.a1zap/apps/<handle>/`.
 
 ### Create a Template App (Admin)
 
-Create a hello-world template mini app for a specific owner:
+Create a hello-world template mini app:
 
 ```bash
+# If you're using a user-scoped Developer API key:
+a1zap create my-new-app --name "My New App"
+
 # Use owner handle
 a1zap create my-new-app \
   --owner alice \
@@ -86,6 +89,12 @@ a1zap create my-new-app \
 # Or use owner user ID / Stack Auth ID
 a1zap create my-new-app --owner-id <userId>
 a1zap create my-new-app --owner-stack-auth-id <stackAuthUserId>
+
+# Create using local App.tsx as template code
+a1zap create my-new-app --copy ./my-template/App.tsx
+
+# Create using another mini app's code as template
+a1zap create my-new-app --copy @source-app
 ```
 
 Create and auto-attach to a community:
@@ -101,7 +110,9 @@ Useful options:
 - `--publication draft|private|unlisted|public|community_only`
 - `--community-description "Custom copy for this community"`
 - `--featured`
-- `--pull` (also supports `--force`)
+- `--copy <path|@handle|id>` (use local App.tsx or another mini app's code as template)
+- pulls locally by default (use `--no-pull` to skip)
+- `--force` (when pull is enabled)
 
 ### Attach Existing App to a Community
 
@@ -118,6 +129,30 @@ Useful options:
 - `--publication draft|private|unlisted|public|community_only`
 - `--community-description "Custom copy for this community"`
 - `--featured`
+
+### Copy an Existing App
+
+Copy an app into a brand-new app record:
+
+```bash
+# Copy by handle, keep same owner by default
+a1zap copy @source-app copied-app-handle
+
+# Copy to a different owner and attach to a community
+a1zap copy @source-app copied-app-handle \
+  --owner pasha \
+  --community-handle unsw \
+  --community-status approved
+```
+
+Useful options:
+- `--owner <handle>` (or `--owner-id`, `--owner-stack-auth-id`)
+- `--publication draft|private|unlisted|public|community_only`
+- `--community-handle` / `--community-id`
+- `--community-status pending|approved`
+- `--community-description "Custom copy for this community"`
+- `--featured`
+- pulls locally by default (use `--no-pull` to skip)
 
 ### Start Development Server
 

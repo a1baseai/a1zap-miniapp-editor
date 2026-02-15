@@ -1,16 +1,13 @@
 import chalk from "chalk";
-import fs from "fs";
-import path from "path";
 import {
-  createTemplateApp,
+  copyAppToNewRecord,
   findAppByHandle,
-  getAppCode,
   type CommunitySubmissionStatus,
   type PublicationStatus,
 } from "../api.js";
 import { pullCommand } from "./pull.js";
 
-interface CreateOptions {
+interface CopyOptions {
   name?: string;
   description?: string;
   owner?: string;
@@ -23,7 +20,6 @@ interface CreateOptions {
   communityStatus?: string;
   communityDescription?: string;
   featured?: boolean;
-  copy?: string;
   pull?: boolean;
   force?: boolean;
 }
@@ -65,106 +61,41 @@ function parseCommunityStatus(value?: string): CommunitySubmissionStatus | undef
   return value as CommunitySubmissionStatus;
 }
 
-function looksLikeFilePath(value: string): boolean {
-  return (
-    value.includes("/") ||
-    value.includes("\\") ||
-    value.startsWith(".") ||
-    value.endsWith(".tsx") ||
-    value.endsWith(".jsx") ||
-    value.endsWith(".ts") ||
-    value.endsWith(".js")
-  );
-}
-
-function resolveTemplateFilePath(input: string): string | null {
-  const resolved = path.resolve(input);
-  if (!fs.existsSync(resolved)) {
-    return null;
-  }
-
-  const stat = fs.statSync(resolved);
-  if (stat.isFile()) {
-    return resolved;
-  }
-
-  if (stat.isDirectory()) {
-    const candidates = ["App.tsx", "app.tsx", "App.jsx", "app.jsx"];
-    for (const candidate of candidates) {
-      const candidatePath = path.join(resolved, candidate);
-      if (fs.existsSync(candidatePath) && fs.statSync(candidatePath).isFile()) {
-        return candidatePath;
-      }
-    }
-    throw new Error(
-      `No App.tsx/app.tsx found in directory: ${resolved}`
-    );
-  }
-
-  throw new Error(`Unsupported --copy source: ${input}`);
-}
-
-async function resolveTemplateCodeFromCopy(copySource: string): Promise<{
-  templateCode: string;
-  sourceLabel: string;
-}> {
-  const templateFilePath = resolveTemplateFilePath(copySource);
-  if (templateFilePath) {
-    const templateCode = fs.readFileSync(templateFilePath, "utf-8");
-    if (!templateCode.trim()) {
-      throw new Error(`Template file is empty: ${templateFilePath}`);
-    }
-    return {
-      templateCode,
-      sourceLabel: templateFilePath,
-    };
-  }
-
-  if (looksLikeFilePath(copySource)) {
-    throw new Error(`Template file not found: ${path.resolve(copySource)}`);
-  }
-
-  const trimmed = copySource.trim();
-  const cleanHandle = normalizeHandle(trimmed);
+async function resolveAppId(appIdOrHandle: string): Promise<{ appId: string; appRef: string }> {
+  const trimmed = appIdOrHandle.trim();
+  const clean = normalizeHandle(trimmed);
   const likelyId =
     !trimmed.startsWith("@") &&
     /^[a-z0-9]{20,}$/i.test(trimmed) &&
     !trimmed.includes("-") &&
     !trimmed.includes("_");
 
-  let sourceAppId = trimmed;
-  let sourceLabel = trimmed;
   if (!likelyId || trimmed.startsWith("@")) {
-    const sourceApp = await findAppByHandle(cleanHandle);
-    if (!sourceApp) {
-      throw new Error(`Source app not found: ${trimmed}`);
+    const app = await findAppByHandle(clean);
+    if (!app) {
+      if (trimmed.startsWith("@")) {
+        throw new Error(`App not found: ${trimmed}`);
+      }
+      return { appId: trimmed, appRef: trimmed };
     }
-    sourceAppId = sourceApp.id;
-    sourceLabel = `@${sourceApp.handle}`;
+    return { appId: app.id, appRef: `@${app.handle}` };
   }
 
-  const sourceAppCode = await getAppCode(sourceAppId);
-  if (!sourceAppCode.code || !sourceAppCode.code.trim()) {
-    throw new Error(`Source app has no code: ${sourceLabel}`);
-  }
-
-  return {
-    templateCode: sourceAppCode.code,
-    sourceLabel,
-  };
+  return { appId: trimmed, appRef: trimmed };
 }
 
 /**
- * Create a hello-world template mini app.
+ * Copy an app into a new app record.
  */
-export async function createCommand(
-  handleArg: string,
-  options: CreateOptions
+export async function copyCommand(
+  sourceAppIdOrHandle: string,
+  newHandleArg: string,
+  options: CopyOptions
 ): Promise<void> {
   try {
-    const handle = normalizeHandle(handleArg);
-    if (!handle) {
-      throw new Error("Handle cannot be empty");
+    const newHandle = normalizeHandle(newHandleArg);
+    if (!newHandle) {
+      throw new Error("New handle cannot be empty");
     }
 
     if (
@@ -176,7 +107,6 @@ export async function createCommand(
     }
 
     const ownerHandle = options.owner ?? options.ownerHandle;
-
     const ownerSelectorCount =
       Number(!!ownerHandle) +
       Number(!!options.ownerId) +
@@ -202,19 +132,12 @@ export async function createCommand(
 
     const publicationStatus = parsePublicationStatus(options.publication);
     const communitySubmissionStatus = parseCommunityStatus(options.communityStatus);
-    const copySource = options.copy?.trim();
-    let templateCode: string | undefined;
 
-    if (copySource) {
-      const resolved = await resolveTemplateCodeFromCopy(copySource);
-      templateCode = resolved.templateCode;
-      console.log(chalk.dim(`Using template code from ${resolved.sourceLabel}`));
-    }
+    const { appId: sourceAppId, appRef: sourceRef } = await resolveAppId(sourceAppIdOrHandle);
+    console.log(chalk.dim(`Copying ${sourceRef} to @${newHandle}...`));
 
-    console.log(chalk.dim(`Creating @${handle}...`));
-
-    const result = await createTemplateApp({
-      handle,
+    const result = await copyAppToNewRecord(sourceAppId, {
+      handle: newHandle,
       name: options.name?.trim() || undefined,
       description: options.description?.trim() || undefined,
       ownerHandle: ownerHandle ? normalizeHandle(ownerHandle) : undefined,
@@ -228,12 +151,14 @@ export async function createCommand(
       communitySubmissionStatus,
       communityDescription: options.communityDescription?.trim() || undefined,
       isFeaturedInCommunity: options.featured,
-      templateCode,
     });
 
     console.log("");
-    console.log(chalk.green("✓") + ` Created ${chalk.bold(result.app.name)} (${chalk.cyan(`@${result.app.handle}`)})`);
-    console.log(`  ID: ${chalk.dim(result.app.id)}`);
+    console.log(
+      chalk.green("✓") +
+        ` Copied ${chalk.bold(`@${result.sourceApp.handle}`)} → ${chalk.bold(`@${result.app.handle}`)}`
+    );
+    console.log(`  New app ID: ${chalk.dim(result.app.id)}`);
     console.log(`  Publication: ${chalk.yellow(result.app.publicationStatus)}`);
 
     if (result.communityLink) {
@@ -260,3 +185,4 @@ export async function createCommand(
     process.exit(1);
   }
 }
+
