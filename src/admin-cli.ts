@@ -1,4 +1,4 @@
 #!/usr/bin/env node
 import { buildCli } from "./program.js";
 
-buildCli().parse();
+buildCli({ includeUpdateAlias: true }).parse();

@@ -1,6 +1,12 @@
 import fs from "fs";
-import path from "path";
 import os from "os";
+import path from "path";
+import {
+  getApiUrlEnvVarNames,
+  getCliConfigDir,
+  getCliDefaultWorkspace,
+  getWorkspaceEnvVarNames,
+} from "./cli-meta.js";
 
 export interface A1ZapConfig {
   apiKey: string | null;
@@ -19,14 +25,27 @@ export interface AppConfig {
 }
 
 // Config directory (hidden, for credentials only)
-export const CONFIG_DIR = path.join(os.homedir(), ".a1zap");
+export const CONFIG_DIR = getCliConfigDir();
 export const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 
 // Default workspace (visible, for apps)
-export const DEFAULT_WORKSPACE = path.join(os.homedir(), "a1zap-apps");
+export const DEFAULT_WORKSPACE = getCliDefaultWorkspace();
 
 // Default API URL (Next.js app - using www to avoid redirect)
 export const DEFAULT_API_URL = "https://www.a1zap.com";
+
+export function expandHomePath(inputPath: string): string {
+  if (inputPath === "~") {
+    return os.homedir();
+  }
+
+  if (inputPath.startsWith("~/") || inputPath.startsWith("~\\")) {
+    const relativePath = inputPath.slice(2).replace(/[\\/]+/g, path.sep);
+    return path.join(os.homedir(), relativePath);
+  }
+
+  return inputPath;
+}
 
 /**
  * Ensure the config directory exists
@@ -64,14 +83,26 @@ export function saveConfig(config: A1ZapConfig): void {
  * Get the API URL from config or environment
  */
 export function getApiUrl(): string {
-  return process.env.A1ZAP_API_URL || getConfig().apiUrl || DEFAULT_API_URL;
+  for (const envVarName of getApiUrlEnvVarNames()) {
+    const value = process.env[envVarName];
+    if (value) {
+      return value;
+    }
+  }
+  return getConfig().apiUrl || DEFAULT_API_URL;
 }
 
 /**
  * Get the workspace directory (where apps are stored)
  */
 export function getWorkspace(): string {
-  return process.env.A1ZAP_WORKSPACE || getConfig().workspace || DEFAULT_WORKSPACE;
+  for (const envVarName of getWorkspaceEnvVarNames()) {
+    const value = process.env[envVarName];
+    if (value) {
+      return value;
+    }
+  }
+  return getConfig().workspace || DEFAULT_WORKSPACE;
 }
 
 /**

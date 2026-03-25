@@ -1,4 +1,5 @@
 import { getConfig, getApiUrl } from "./config.js";
+import { formatCommand } from "./cli-meta.js";
 
 export interface RemoteApp {
   id: string;
@@ -161,7 +162,7 @@ export class ApiError extends Error {
 function getAuthHeaders(): Record<string, string> {
   const config = getConfig();
   if (!config.apiKey) {
-    throw new Error("Not configured. Run: a1zap config <api-key>");
+    throw new Error(`Not configured. Run: ${formatCommand("config <api-key>")}`);
   }
 
   return {

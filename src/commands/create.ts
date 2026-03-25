@@ -8,6 +8,7 @@ import {
   type CommunitySubmissionStatus,
   type PublicationStatus,
 } from "../api.js";
+import { formatCommand } from "../cli-meta.js";
 import { pullCommand } from "./pull.js";
 
 interface CreateOptions {
@@ -250,7 +251,7 @@ export async function createCommand(
     if (shouldPull) {
       await pullCommand(result.app.id, { force: options.force });
     } else {
-      console.log(`  Next: ${chalk.bold(`a1zap pull @${result.app.handle}`)}`);
+      console.log(`  Next: ${chalk.bold(formatCommand(`pull @${result.app.handle}`))}`);
       console.log("");
     }
   } catch (error) {

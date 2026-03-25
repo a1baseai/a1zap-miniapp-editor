@@ -2,16 +2,27 @@ import chalk from "chalk";
 import fs from "fs";
 import path from "path";
 import { pushAppCode } from "../api.js";
+import { formatCommand, getCliCommandName } from "../cli-meta.js";
+import { getApiUrl } from "../config.js";
 import {
   getAppPath,
   getAppConfig,
   saveAppConfig,
   detectAppFromCwd,
   detectAppDirFromCwd,
+  type AppConfig,
 } from "../config.js";
 
 interface PushOptions {
   message?: string;
+}
+
+function buildAppUrls(appId: string): { publicUrl: string; editUrl: string } {
+  const baseUrl = getApiUrl().replace(/\/+$/, "");
+  return {
+    publicUrl: `${baseUrl}/micro-apps/${appId}`,
+    editUrl: `${baseUrl}/micro-apps/${appId}/edit`,
+  };
 }
 
 /**
@@ -22,7 +33,7 @@ export async function pushCommand(
   options: PushOptions
 ): Promise<void> {
   try {
-    let appConfig;
+    let appConfig: AppConfig | null = null;
     let appDir: string;
 
     if (handleArg) {
@@ -35,7 +46,7 @@ export async function pushCommand(
         console.error(
           chalk.red("✗") + ` App not found locally: @${handle}`
         );
-        console.log(`  Run: ${chalk.bold(`a1zap pull @${handle}`)}`);
+        console.log(`  Run: ${chalk.bold(formatCommand(`pull @${handle}`))}`);
         process.exit(1);
       }
     } else {
@@ -47,11 +58,15 @@ export async function pushCommand(
         console.error(
           chalk.red("✗") + " No app found. Provide a handle or run from an app directory."
         );
-        console.log(`  Example: ${chalk.bold("a1zap push @my-app")}`);
+        console.log(`  Example: ${chalk.bold(formatCommand("push @my-app"))}`);
         process.exit(1);
       }
 
       appDir = detectedDir;
+    }
+
+    if (!appConfig) {
+      throw new Error("App config could not be loaded");
     }
 
     // Read the code file
@@ -64,22 +79,26 @@ export async function pushCommand(
     }
 
     const code = fs.readFileSync(codePath, "utf-8");
-    const commitMessage = options.message || "Updated via a1zap dev tool";
+    const commitMessage = options.message || `Updated via ${getCliCommandName()}`;
+    const currentAppConfig = appConfig;
 
-    console.log(chalk.dim(`Pushing ${appConfig.name}...`));
+    console.log(chalk.dim(`Pushing ${currentAppConfig.name}...`));
 
-    const result = await pushAppCode(appConfig.appId, code, commitMessage);
+    const result = await pushAppCode(currentAppConfig.appId, code, commitMessage);
 
     // Update local version
-    appConfig.version = result.version;
-    saveAppConfig(appConfig.handle, appConfig);
+    currentAppConfig.version = result.version;
+    saveAppConfig(currentAppConfig.handle, currentAppConfig);
+    const { publicUrl, editUrl } = buildAppUrls(currentAppConfig.appId);
 
     console.log("");
     console.log(
       chalk.green("✓") +
-        ` Published ${chalk.bold(appConfig.name)} v${result.version} (revision #${result.revision})`
+        ` Published ${chalk.bold(currentAppConfig.name)} v${result.version} (revision #${result.revision})`
     );
     console.log(chalk.dim(`  "${commitMessage}"`));
+    console.log(`  View: ${chalk.cyan(publicUrl)}`);
+    console.log(`  Edit: ${chalk.cyan(editUrl)}`);
     
     if (result.draftWarning) {
       console.log(chalk.yellow("⚠") + ` ${result.draftWarning}`);

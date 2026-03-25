@@ -1,7 +1,8 @@
 import chalk from "chalk";
 import fs from "fs";
 import path from "path";
-import { findAppByHandle, getAppCode } from "../api.js";
+import { findAppByHandle, getAppCode, listApps } from "../api.js";
+import { formatCommand } from "../cli-meta.js";
 import {
   getAppPath,
   saveAppConfigToPath,
@@ -11,125 +12,188 @@ import {
   getWorkspace,
 } from "../config.js";
 
-interface PullOptions {
+export interface PullOptions {
   force?: boolean;
   here?: boolean;
   dir?: string;
 }
 
-/**
- * Determine the target directory for pulling an app
- */
+interface PullResult {
+  appId: string;
+  appName: string;
+  handle: string;
+  appPath: string;
+  codeBytes: number;
+  cssBytes: number | null;
+}
+
+export interface SyncAppsResult {
+  total: number;
+  pulled: Array<{ handle: string; path: string }>;
+  skipped: string[];
+  failed: Array<{ handle: string; error: string }>;
+}
+
+function normalizeHandle(value: string): string {
+  return value.trim().replace(/^@/, "");
+}
+
+function looksLikeAppId(value: string): boolean {
+  return /^[a-z0-9]{20,}$/i.test(value) && !value.includes("-") && !value.includes("_");
+}
+
+async function resolveAppId(appIdOrHandle: string): Promise<string> {
+  const input = appIdOrHandle.trim();
+  if (!input) {
+    throw new Error("App ID or handle is required");
+  }
+
+  const cleanHandle = normalizeHandle(input);
+
+  if (input.startsWith("@")) {
+    const app = await findAppByHandle(cleanHandle);
+    if (!app) {
+      throw new Error(`App not found: ${input}`);
+    }
+    return app.id;
+  }
+
+  const handleCandidate = await findAppByHandle(cleanHandle);
+  if (handleCandidate) {
+    return handleCandidate.id;
+  }
+
+  if (!looksLikeAppId(input)) {
+    throw new Error(`App not found: @${cleanHandle}`);
+  }
+
+  return input;
+}
+
 function getTargetPath(handle: string, options: PullOptions): string {
   const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
 
   if (options.here) {
-    // Pull to current directory with app name as subfolder
     return path.join(process.cwd(), cleanHandle);
   }
 
   if (options.dir) {
-    // Pull to specified directory with app name as subfolder
     const resolvedDir = path.resolve(options.dir);
     return path.join(resolvedDir, cleanHandle);
   }
 
-  // Default: pull to workspace
   return getAppPath(handle);
 }
 
-/**
- * Pull an app from the platform to local storage
- */
+async function pullAppById(appId: string, options: PullOptions): Promise<PullResult> {
+  const appCode = await getAppCode(appId);
+  const handle = appCode.handle;
+  const appPath = getTargetPath(handle, options);
+
+  const existsInWorkspace = appExistsLocally(handle);
+  const existsAtTarget = appExistsAtPath(appPath);
+
+  if ((existsInWorkspace || existsAtTarget) && !options.force) {
+    if (existsAtTarget) {
+      throw new Error(`App already exists at ${appPath}. Use --force to overwrite.`);
+    }
+
+    throw new Error(`App already exists in workspace at ${getAppPath(handle)}. Use --force to overwrite.`);
+  }
+
+  if (!fs.existsSync(appPath)) {
+    fs.mkdirSync(appPath, { recursive: true });
+  }
+
+  const config: AppConfig = {
+    appId: appCode.id,
+    name: appCode.name,
+    handle: appCode.handle,
+    entryFile: "App.tsx",
+    version: appCode.version,
+    designSystem: appCode.designSystem,
+    appConfig: appCode.appConfig,
+  };
+  saveAppConfigToPath(appPath, config);
+
+  fs.writeFileSync(path.join(appPath, "App.tsx"), appCode.code);
+
+  if (appCode.css) {
+    fs.writeFileSync(path.join(appPath, "styles.css"), appCode.css);
+  }
+
+  return {
+    appId: appCode.id,
+    appName: appCode.name,
+    handle: appCode.handle,
+    appPath,
+    codeBytes: appCode.code.length,
+    cssBytes: appCode.css ? appCode.css.length : null,
+  };
+}
+
+export async function syncAppsToWorkspace(): Promise<SyncAppsResult> {
+  const remoteApps = await listApps();
+  const result: SyncAppsResult = {
+    total: remoteApps.length,
+    pulled: [],
+    skipped: [],
+    failed: [],
+  };
+
+  for (const app of remoteApps) {
+    if (appExistsLocally(app.handle)) {
+      result.skipped.push(app.handle);
+      continue;
+    }
+
+    try {
+      const pulled = await pullAppById(app.id, {});
+      result.pulled.push({ handle: pulled.handle, path: pulled.appPath });
+    } catch (error) {
+      result.failed.push({
+        handle: app.handle,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return result;
+}
+
 export async function pullCommand(
   appIdOrHandle: string,
   options: PullOptions
 ): Promise<void> {
   try {
-    let appId = appIdOrHandle;
-    let handle = appIdOrHandle;
-
-    // If it starts with @, it's a handle - find the ID
-    if (appIdOrHandle.startsWith("@")) {
-      console.log(chalk.dim(`Looking up ${appIdOrHandle}...`));
-      const app = await findAppByHandle(appIdOrHandle);
-      if (!app) {
-        console.error(chalk.red("✗ App not found:"), appIdOrHandle);
-        process.exit(1);
-      }
-      appId = app.id;
-      handle = app.handle;
+    const input = appIdOrHandle.trim();
+    if (input.startsWith("@")) {
+      console.log(chalk.dim(`Looking up ${input}...`));
     }
 
-    // Determine target path
-    const appPath = getTargetPath(handle, options);
-
-    // Check if already exists
-    const existsInWorkspace = appExistsLocally(handle);
-    const existsAtTarget = appExistsAtPath(appPath);
-
-    if ((existsInWorkspace || existsAtTarget) && !options.force) {
-      if (existsAtTarget) {
-        console.log(
-          chalk.yellow("!") +
-            ` App already exists at ${chalk.cyan(appPath)}`
-        );
-      } else {
-        console.log(
-          chalk.yellow("!") +
-            ` App already exists in workspace at ${chalk.cyan(getAppPath(handle))}`
-        );
-      }
-      console.log(`  Use ${chalk.bold("--force")} to overwrite.`);
-      process.exit(1);
-    }
-
+    const appId = await resolveAppId(input);
     console.log(chalk.dim(`Pulling app ${appId}...`));
-    const appCode = await getAppCode(appId);
-
-    // Create directory if needed
-    if (!fs.existsSync(appPath)) {
-      fs.mkdirSync(appPath, { recursive: true });
-    }
-
-    // Write app config
-    const config: AppConfig = {
-      appId: appCode.id,
-      name: appCode.name,
-      handle: appCode.handle,
-      entryFile: "App.tsx",
-      version: appCode.version,
-      designSystem: appCode.designSystem,
-      appConfig: appCode.appConfig,
-    };
-    saveAppConfigToPath(appPath, config);
-
-    // Write code file
-    fs.writeFileSync(path.join(appPath, "App.tsx"), appCode.code);
-
-    // Write CSS if present
-    if (appCode.css) {
-      fs.writeFileSync(path.join(appPath, "styles.css"), appCode.css);
-    }
+    const pulled = await pullAppById(appId, options);
 
     console.log("");
-    console.log(chalk.green("✓") + ` Pulled ${chalk.bold(appCode.name)} to:`);
-    console.log(`  ${chalk.cyan(appPath)}`);
+    console.log(chalk.green("✓") + ` Pulled ${chalk.bold(pulled.appName)} to:`);
+    console.log(`  ${chalk.cyan(pulled.appPath)}`);
     console.log("");
     console.log("  Files:");
-    console.log(`    - App.tsx (${appCode.code.length} bytes)`);
+    console.log(`    - App.tsx (${pulled.codeBytes} bytes)`);
     console.log(`    - a1zap.json`);
-    if (appCode.css) {
-      console.log(`    - styles.css (${appCode.css.length} bytes)`);
+    if (pulled.cssBytes !== null) {
+      console.log(`    - styles.css (${pulled.cssBytes} bytes)`);
     }
     console.log("");
 
-    // Show next steps based on location
     if (options.here || options.dir) {
-      console.log(`  Next: ${chalk.bold(`cd ${path.basename(appPath)} && a1zap dev`)}`);
+      console.log(`  Folder: ${chalk.cyan(pulled.appPath)}`);
+      console.log(`  Run from that folder: ${chalk.bold(formatCommand("dev"))}`);
     } else {
       console.log(`  Workspace: ${chalk.dim(getWorkspace())}`);
-      console.log(`  Next: ${chalk.bold(`cd $(a1zap open ${appCode.handle}) && cursor .`)}`);
+      console.log(`  Start dev: ${chalk.bold(formatCommand(`dev @${pulled.handle}`))}`);
+      console.log(`  Folder: ${chalk.cyan(pulled.appPath)}`);
     }
     console.log("");
   } catch (error) {

@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { formatCommand } from "../cli-meta.js";
 import {
   getAppPath,
   getAppConfig,
@@ -29,7 +30,7 @@ export async function devCommand(
 
     if (!appConfig) {
       console.error(chalk.red("✗") + ` App not found locally: @${handle}`);
-      console.log(`  Run: ${chalk.bold(`a1zap pull @${handle}`)}`);
+      console.log(`  Run: ${chalk.bold(formatCommand(`pull @${handle}`))}`);
       process.exit(1);
     }
   } else {
@@ -42,7 +43,7 @@ export async function devCommand(
         chalk.red("✗") +
           " No app found. Provide a handle or run from an app directory."
       );
-      console.log(`  Example: ${chalk.bold("a1zap dev @my-app")}`);
+      console.log(`  Example: ${chalk.bold(formatCommand("dev @my-app"))}`);
       process.exit(1);
     }
 

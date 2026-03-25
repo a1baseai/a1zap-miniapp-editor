@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
-    "a1zap": "./bin/a1zap.js"
+    "a1zap": "./bin/a1zap.js",
+    "a1zap-admin": "./bin/a1zap-admin.js"
   },
   "scripts": {
     "build": "tsc",
@@ -41,6 +42,9 @@
     "dist",
     "bin",
     "install.sh",
+    "install-admin.sh",
+    "install.ps1",
+    "install-admin.ps1",
     "uninstall.sh"
   ],
   "repository": {

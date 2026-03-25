@@ -2,8 +2,7 @@ import fs from "fs";
 import { getAppPath, getWorkspace, appExistsLocally } from "../config.js";
 
 /**
- * Print the path to an app's directory
- * Useful for: cd $(a1zap open my-app)
+ * Print the path to an app's directory.
  */
 export async function openCommand(handle: string): Promise<void> {
   const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
