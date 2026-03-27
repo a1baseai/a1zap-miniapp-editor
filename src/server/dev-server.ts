@@ -4,6 +4,7 @@ import chokidar from "chokidar";
 import fs from "fs";
 import path from "path";
 import http from "http";
+import type { AddressInfo } from "net";
 import chalk from "chalk";
 import { transform } from "sucrase";
 import type { AppConfig } from "../config.js";
@@ -11,6 +12,41 @@ import { getPreviewHTML } from "./preview.js";
 
 interface DevServerOptions {
   port: number;
+}
+
+function listenWithPortFallback(server: http.Server, preferredPort: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tryListen = (port: number) => {
+      const handleListening = () => {
+        server.off("error", handleError);
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          reject(new Error("Dev server started, but the port could not be determined"));
+          return;
+        }
+        resolve((address as AddressInfo).port);
+      };
+
+      const handleError = (error: NodeJS.ErrnoException) => {
+        server.off("listening", handleListening);
+
+        if (error.code === "EADDRINUSE" && port < 65535) {
+          const nextPort = port + 1;
+          console.log(chalk.yellow("!") + ` Port ${port} is in use, trying ${nextPort}...`);
+          tryListen(nextPort);
+          return;
+        }
+
+        reject(error);
+      };
+
+      server.once("listening", handleListening);
+      server.once("error", handleError);
+      server.listen(port);
+    };
+
+    tryListen(preferredPort);
+  });
 }
 
 /**
@@ -32,6 +68,7 @@ export function startDevServer(
   const app = express();
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
+  let activePort = options.port;
 
   // Track connected clients
   const clients = new Set<WebSocket>();
@@ -111,25 +148,35 @@ export function startDevServer(
 
   // Serve preview HTML
   app.get("/", (_req, res) => {
-    res.type("html").send(getPreviewHTML(config, options.port));
+    res.type("html").send(getPreviewHTML(config, activePort));
   });
 
   // Start server
-  server.listen(options.port, () => {
-    console.log("");
-    console.log(chalk.bold.green("  A1Zap Dev Server"));
-    console.log("");
-    console.log(`  ${chalk.dim("App:")}      ${config.name}`);
-    console.log(`  ${chalk.dim("Handle:")}   @${config.handle}`);
-    console.log(`  ${chalk.dim("Version:")}  v${config.version}`);
-    console.log(`  ${chalk.dim("Entry:")}    ${entryFile}`);
-    console.log("");
-    console.log(`  ${chalk.dim("Preview:")}  ${chalk.cyan(`http://localhost:${options.port}`)}`);
-    console.log(`  ${chalk.dim("Dir:")}      ${projectDir}`);
-    console.log("");
-    console.log(chalk.dim("  Watching for changes... Press Ctrl+C to stop."));
-    console.log("");
-  });
+  listenWithPortFallback(server, options.port)
+    .then((resolvedPort) => {
+      activePort = resolvedPort;
+      console.log("");
+      console.log(chalk.bold.green("  A1Zap Dev Server"));
+      console.log("");
+      console.log(`  ${chalk.dim("App:")}      ${config.name}`);
+      console.log(`  ${chalk.dim("Handle:")}   @${config.handle}`);
+      console.log(`  ${chalk.dim("Version:")}  v${config.version}`);
+      console.log(`  ${chalk.dim("Entry:")}    ${entryFile}`);
+      console.log("");
+      console.log(`  ${chalk.dim("Preview:")}  ${chalk.cyan(`http://localhost:${resolvedPort}`)}`);
+      console.log(`  ${chalk.dim("Dir:")}      ${projectDir}`);
+      console.log("");
+      console.log(chalk.dim("  Watching for changes... Press Ctrl+C to stop."));
+      console.log("");
+    })
+    .catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red("✗") + ` Failed to start dev server: ${errorMessage}`);
+      watcher.close();
+      wss.close();
+      server.close();
+      process.exit(1);
+    });
 
   // Handle shutdown
   const shutdown = () => {
