@@ -14,7 +14,7 @@ echo -e "${BLUE}     A1Zap MiniApp Editor - Installer${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-detect_shell_rc() {
+get_shell_rc_targets() {
     local shell_name
     shell_name=$(basename "${SHELL:-}")
     local is_mac=false
@@ -22,47 +22,50 @@ detect_shell_rc() {
 
     case "$shell_name" in
         zsh)
-            if [ -f "$HOME/.zprofile" ]; then
-                echo "$HOME/.zprofile"
-            elif [ -f "$HOME/.zshrc" ]; then
-                echo "$HOME/.zshrc"
-            else
-                echo "$HOME/.zprofile"
-            fi
+            printf '%s\n' "$HOME/.zprofile" "$HOME/.zshrc"
             ;;
         bash)
             if [ "$is_mac" = true ]; then
-                if [ -f "$HOME/.bash_profile" ]; then
-                    echo "$HOME/.bash_profile"
-                elif [ -f "$HOME/.bashrc" ]; then
-                    echo "$HOME/.bashrc"
-                else
-                    echo "$HOME/.bash_profile"
-                fi
+                printf '%s\n' "$HOME/.bash_profile" "$HOME/.bashrc"
             else
-                if [ -f "$HOME/.bashrc" ]; then
-                    echo "$HOME/.bashrc"
-                elif [ -f "$HOME/.bash_profile" ]; then
-                    echo "$HOME/.bash_profile"
-                else
-                    echo "$HOME/.bashrc"
-                fi
+                printf '%s\n' "$HOME/.bashrc" "$HOME/.profile"
             fi
             ;;
         *)
-            echo "$HOME/.profile"
+            printf '%s\n' "$HOME/.profile"
             ;;
     esac
 }
 
+primary_shell_rc() {
+    get_shell_rc_targets | head -n 1
+}
+
 shell_source_hint() {
-    local shell_rc="$1"
+    local shell_rc
+    shell_rc=$(primary_shell_rc)
 
     if [ -n "$shell_rc" ]; then
         echo "source $shell_rc"
     else
         echo "restart your terminal"
     fi
+}
+
+shell_rc_label() {
+    local first=true
+    local shell_rc
+    while IFS= read -r shell_rc; do
+        [ -z "$shell_rc" ] && continue
+        if [ "$first" = true ]; then
+            printf '%s' "$shell_rc"
+            first=false
+        else
+            printf ', %s' "$shell_rc"
+        fi
+    done <<EOF
+$(get_shell_rc_targets)
+EOF
 }
 
 require_command() {
@@ -215,31 +218,50 @@ chmod +x "$INSTALL_DIR/bin/a1zap.js"
 
 echo -e "${GREEN}✓${NC} CLI installed"
 
-SHELL_RC=$(detect_shell_rc)
-SOURCE_HINT=$(shell_source_hint "$SHELL_RC")
+PRIMARY_SHELL_RC=$(primary_shell_rc)
+SHELL_RC_LABEL=$(shell_rc_label)
+SOURCE_HINT=$(shell_source_hint)
 
 # Check if bin dir is in PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo ""
-    echo -e "${YELLOW}⚠ Add this to your shell config ($SHELL_RC):${NC}"
+    echo -e "${YELLOW}⚠ Add this to your shell startup files ($SHELL_RC_LABEL):${NC}"
     echo ""
-    echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo '    case ":$PATH:" in'
+    echo '      *":$HOME/.local/bin:"*) ;;'
+    echo '      *) export PATH="$HOME/.local/bin:$PATH" ;;'
+    echo '    esac'
     echo ""
     echo "  Then restart your terminal, or run:"
     echo ""
     echo "    $SOURCE_HINT"
     echo ""
 
-    mkdir -p "$(dirname "$SHELL_RC")"
-    touch "$SHELL_RC"
+    while IFS= read -r SHELL_RC; do
+        [ -z "$SHELL_RC" ] && continue
+        mkdir -p "$(dirname "$SHELL_RC")"
+        touch "$SHELL_RC"
 
-    if ! grep -q 'HOME/.local/bin' "$SHELL_RC" 2>/dev/null; then
-        echo "" >> "$SHELL_RC"
-        echo '# A1Zap CLI' >> "$SHELL_RC"
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
-        echo -e "${GREEN}✓${NC} Automatically added to $SHELL_RC"
-        echo "  Please restart your terminal or run: $SOURCE_HINT"
-    fi
+        if ! grep -q 'A1Zap CLI' "$SHELL_RC" 2>/dev/null; then
+            {
+                echo ""
+                echo '# A1Zap CLI'
+                echo 'case ":$PATH:" in'
+                echo '  *":$HOME/.local/bin:"*) ;;'
+                echo '  *) export PATH="$HOME/.local/bin:$PATH" ;;'
+                echo 'esac'
+            } >> "$SHELL_RC"
+            echo -e "${GREEN}✓${NC} Automatically added to $SHELL_RC"
+        fi
+    done <<EOF
+$(get_shell_rc_targets)
+EOF
+
+    echo "  Please restart your terminal or run: $SOURCE_HINT"
+    echo ""
+    echo "  You can also run the CLI right now with:"
+    echo ""
+    echo "    $BIN_DIR/a1zap"
 fi
 
 echo ""
