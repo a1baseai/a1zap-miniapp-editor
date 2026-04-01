@@ -18,12 +18,15 @@ interface PushOptions {
 }
 
 const PUBLIC_APP_BASE_URL = "https://www.a1zap.com";
+const PUBLIC_FEED_BASE_URL = "https://a1zap.com";
 
-function buildAppUrls(appId: string): { publicUrl: string; editUrl: string } {
+function buildAppUrls(appId: string): { publicUrl: string; feedUrl: string; editUrl: string } {
   const publicBaseUrl = PUBLIC_APP_BASE_URL.replace(/\/+$/, "");
+  const feedBaseUrl = PUBLIC_FEED_BASE_URL.replace(/\/+$/, "");
   const editBaseUrl = getApiUrl().replace(/\/+$/, "");
   return {
     publicUrl: `${publicBaseUrl}/micro-apps/${appId}`,
+    feedUrl: `${feedBaseUrl}/feed?miniApp=${encodeURIComponent(appId)}&miniAppSeconds=45`,
     editUrl: `${editBaseUrl}/micro-apps/${appId}/edit`,
   };
 }
@@ -92,7 +95,7 @@ export async function pushCommand(
     // Update local version
     currentAppConfig.version = result.version;
     saveAppConfig(currentAppConfig.handle, currentAppConfig);
-    const { publicUrl, editUrl } = buildAppUrls(currentAppConfig.appId);
+    const { publicUrl, feedUrl, editUrl } = buildAppUrls(currentAppConfig.appId);
 
     console.log("");
     console.log(
@@ -101,6 +104,7 @@ export async function pushCommand(
     );
     console.log(chalk.dim(`  "${commitMessage}"`));
     console.log(`  App URL: ${chalk.cyan(publicUrl)}`);
+    console.log(`  Feed URL: ${chalk.cyan(feedUrl)}`);
     console.log(`  Edit: ${chalk.cyan(editUrl)}`);
     
     if (result.draftWarning) {
