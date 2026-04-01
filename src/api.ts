@@ -32,6 +32,8 @@ export interface PushResult {
   draftWarning?: string;
 }
 
+export type AppListScope = "owned" | "system";
+
 export type PublicationStatus =
   | "draft"
   | "private"
@@ -222,8 +224,15 @@ interface ListAppsResponse {
 /**
  * List all available apps
  */
-export async function listApps(): Promise<RemoteApp[]> {
-  const response = await apiRequest<ListAppsResponse>("GET", "/api/developer/apps");
+export async function listApps(options: { scope?: AppListScope } = {}): Promise<RemoteApp[]> {
+  const params = new URLSearchParams();
+  if (options.scope === "system") {
+    params.set("scope", "system");
+  }
+
+  const query = params.toString();
+  const endpoint = query ? `/api/developer/apps?${query}` : "/api/developer/apps";
+  const response = await apiRequest<ListAppsResponse>("GET", endpoint);
   return response.apps;
 }
 

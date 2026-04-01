@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import fs from "fs";
 import path from "path";
-import { findAppByHandle, getAppCode, listApps } from "../api.js";
+import { ApiError, AppListScope, findAppByHandle, getAppCode, listApps } from "../api.js";
 import { formatCommand } from "../cli-meta.js";
 import {
   getAppPath,
@@ -39,6 +39,8 @@ export interface SyncAppsResult {
   skipped: string[];
   failed: Array<{ handle: string; error: string }>;
 }
+
+const ALL_SYSTEM_PULL_REF = "all-system";
 
 function normalizeHandle(value: string): string {
   return value.trim().replace(/^@+/, "");
@@ -147,8 +149,8 @@ async function pullAppById(appId: string, options: PullOptions): Promise<PullRes
   };
 }
 
-export async function syncAppsToWorkspace(): Promise<SyncAppsResult> {
-  const remoteApps = await listApps();
+async function syncRemoteAppsToWorkspace(appScope: AppListScope): Promise<SyncAppsResult> {
+  const remoteApps = await listApps({ scope: appScope });
   const result: SyncAppsResult = {
     total: remoteApps.length,
     pulled: [],
@@ -176,12 +178,75 @@ export async function syncAppsToWorkspace(): Promise<SyncAppsResult> {
   return result;
 }
 
+export async function syncAppsToWorkspace(): Promise<SyncAppsResult> {
+  return syncRemoteAppsToWorkspace("owned");
+}
+
+async function pullAllSystemAppsCommand(options: PullOptions): Promise<void> {
+  if (options.here || options.dir) {
+    throw new Error(
+      `${formatCommand(`pull ${ALL_SYSTEM_PULL_REF}`)} only syncs into the configured workspace.`
+    );
+  }
+
+  if (options.force) {
+    throw new Error(
+      `${formatCommand(`pull ${ALL_SYSTEM_PULL_REF}`)} always skips apps that already exist locally and does not support --force.`
+    );
+  }
+
+  console.log(chalk.dim(`Syncing all system apps to ${getWorkspace()}...`));
+
+  let result: SyncAppsResult;
+  try {
+    result = await syncRemoteAppsToWorkspace("system");
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      throw new Error(`${formatCommand(`pull ${ALL_SYSTEM_PULL_REF}`)} requires the admin master key.`);
+    }
+    throw error;
+  }
+
+  if (result.total === 0) {
+    console.log(chalk.dim("No system apps were returned."));
+    console.log("");
+    return;
+  }
+
+  console.log("");
+
+  for (const app of result.pulled) {
+    console.log(chalk.green("✓") + ` Pulled @${app.handle} to ${chalk.cyan(app.path)}`);
+  }
+
+  for (const handle of result.skipped) {
+    console.log(chalk.yellow("!") + ` Skipped @${handle} (already exists locally)`);
+  }
+
+  for (const failure of result.failed) {
+    console.log(chalk.red("✗") + ` Failed to pull @${failure.handle}: ${failure.error}`);
+  }
+
+  console.log("");
+  console.log(
+    chalk.bold("System sync:") +
+      ` ${result.pulled.length} pulled, ${result.skipped.length} skipped, ${result.failed.length} failed`
+  );
+  console.log(chalk.dim(`Workspace: ${getWorkspace()}`));
+  console.log("");
+}
+
 export async function pullCommand(
   appIdOrHandle: string,
   options: PullOptions
 ): Promise<void> {
   try {
     const input = appIdOrHandle.trim();
+    if (input === ALL_SYSTEM_PULL_REF) {
+      await pullAllSystemAppsCommand(options);
+      return;
+    }
+
     const resolved = await resolveAppId(input);
     if (resolved.usedHandleLookup) {
       console.log(chalk.dim(`Looking up ${resolved.appRef}...`));
