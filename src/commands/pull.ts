@@ -27,6 +27,12 @@ interface PullResult {
   cssBytes: number | null;
 }
 
+interface ResolvedApp {
+  appId: string;
+  appRef: string;
+  usedHandleLookup: boolean;
+}
+
 export interface SyncAppsResult {
   total: number;
   pulled: Array<{ handle: string; path: string }>;
@@ -35,39 +41,48 @@ export interface SyncAppsResult {
 }
 
 function normalizeHandle(value: string): string {
-  return value.trim().replace(/^@/, "");
+  return value.trim().replace(/^@+/, "");
 }
 
 function looksLikeAppId(value: string): boolean {
   return /^[a-z0-9]{20,}$/i.test(value) && !value.includes("-") && !value.includes("_");
 }
 
-async function resolveAppId(appIdOrHandle: string): Promise<string> {
+async function resolveAppId(appIdOrHandle: string): Promise<ResolvedApp> {
   const input = appIdOrHandle.trim();
   if (!input) {
     throw new Error("App ID or handle is required");
   }
 
   const cleanHandle = normalizeHandle(input);
+  const likelyId = !input.startsWith("@") && looksLikeAppId(input);
 
-  if (input.startsWith("@")) {
+  if (!likelyId) {
     const app = await findAppByHandle(cleanHandle);
     if (!app) {
       throw new Error(`App not found: ${input}`);
     }
-    return app.id;
+    return {
+      appId: app.id,
+      appRef: `@${app.handle}`,
+      usedHandleLookup: true,
+    };
   }
 
   const handleCandidate = await findAppByHandle(cleanHandle);
   if (handleCandidate) {
-    return handleCandidate.id;
+    return {
+      appId: handleCandidate.id,
+      appRef: `@${handleCandidate.handle}`,
+      usedHandleLookup: true,
+    };
   }
 
-  if (!looksLikeAppId(input)) {
-    throw new Error(`App not found: @${cleanHandle}`);
-  }
-
-  return input;
+  return {
+    appId: input,
+    appRef: input,
+    usedHandleLookup: false,
+  };
 }
 
 function getTargetPath(handle: string, options: PullOptions): string {
@@ -167,11 +182,12 @@ export async function pullCommand(
 ): Promise<void> {
   try {
     const input = appIdOrHandle.trim();
-    if (input.startsWith("@")) {
-      console.log(chalk.dim(`Looking up ${input}...`));
+    const resolved = await resolveAppId(input);
+    if (resolved.usedHandleLookup) {
+      console.log(chalk.dim(`Looking up ${resolved.appRef}...`));
     }
 
-    const appId = await resolveAppId(input);
+    const appId = resolved.appId;
     console.log(chalk.dim(`Pulling app ${appId}...`));
     const pulled = await pullAppById(appId, options);
 

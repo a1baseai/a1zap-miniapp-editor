@@ -135,6 +135,8 @@ Download an app to your local workspace:
 
 ```bash
 a1zap pull @my-app
+# or without the @:
+a1zap pull my-app
 # or by ID:
 a1zap pull xs726ffzxzmra3rawxqbtgmryh7zge0s
 ```

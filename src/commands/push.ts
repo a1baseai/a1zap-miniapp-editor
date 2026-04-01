@@ -17,11 +17,14 @@ interface PushOptions {
   message?: string;
 }
 
+const PUBLIC_APP_BASE_URL = "https://www.a1zap.com";
+
 function buildAppUrls(appId: string): { publicUrl: string; editUrl: string } {
-  const baseUrl = getApiUrl().replace(/\/+$/, "");
+  const publicBaseUrl = PUBLIC_APP_BASE_URL.replace(/\/+$/, "");
+  const editBaseUrl = getApiUrl().replace(/\/+$/, "");
   return {
-    publicUrl: `${baseUrl}/micro-apps/${appId}`,
-    editUrl: `${baseUrl}/micro-apps/${appId}/edit`,
+    publicUrl: `${publicBaseUrl}/micro-apps/${appId}`,
+    editUrl: `${editBaseUrl}/micro-apps/${appId}/edit`,
   };
 }
 
@@ -97,7 +100,7 @@ export async function pushCommand(
         ` Published ${chalk.bold(currentAppConfig.name)} v${result.version} (revision #${result.revision})`
     );
     console.log(chalk.dim(`  "${commitMessage}"`));
-    console.log(`  View: ${chalk.cyan(publicUrl)}`);
+    console.log(`  App URL: ${chalk.cyan(publicUrl)}`);
     console.log(`  Edit: ${chalk.cyan(editUrl)}`);
     
     if (result.draftWarning) {

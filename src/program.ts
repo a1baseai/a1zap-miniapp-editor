@@ -44,7 +44,7 @@ export function buildCli(options: BuildCliOptions = {}): Command {
 
   program
     .command("pull <appIdOrHandle>")
-    .description("Download app code to local workspace")
+    .description("Download app code to local workspace by handle (@handle or handle) or app ID")
     .option("-f, --force", "Overwrite existing local files")
     .option("--here", "Pull to current directory instead of workspace")
     .option("-d, --dir <path>", "Pull to a specific directory")
