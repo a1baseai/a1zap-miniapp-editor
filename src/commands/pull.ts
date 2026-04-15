@@ -25,6 +25,7 @@ interface PullResult {
   appPath: string;
   codeBytes: number;
   cssBytes: number | null;
+  fileCount: number;
 }
 
 interface ResolvedApp {
@@ -133,7 +134,20 @@ async function pullAppById(appId: string, options: PullOptions): Promise<PullRes
   };
   saveAppConfigToPath(appPath, config);
 
-  fs.writeFileSync(path.join(appPath, "App.tsx"), appCode.code);
+  // Restore multi-file structure if available, otherwise write single App.tsx
+  const hasMultiFile = appCode.files && Object.keys(appCode.files).length > 1;
+  if (hasMultiFile) {
+    for (const [relPath, source] of Object.entries(appCode.files!)) {
+      const filePath = path.join(appPath, relPath);
+      const fileDir = path.dirname(filePath);
+      if (!fs.existsSync(fileDir)) {
+        fs.mkdirSync(fileDir, { recursive: true });
+      }
+      fs.writeFileSync(filePath, source);
+    }
+  } else {
+    fs.writeFileSync(path.join(appPath, "App.tsx"), appCode.code);
+  }
 
   if (appCode.css) {
     fs.writeFileSync(path.join(appPath, "styles.css"), appCode.css);
@@ -146,6 +160,7 @@ async function pullAppById(appId: string, options: PullOptions): Promise<PullRes
     appPath,
     codeBytes: appCode.code.length,
     cssBytes: appCode.css ? appCode.css.length : null,
+    fileCount: hasMultiFile ? Object.keys(appCode.files!).length : 1,
   };
 }
 
@@ -260,9 +275,14 @@ export async function pullCommand(
     console.log(chalk.green("✓") + ` Pulled ${chalk.bold(pulled.appName)} to:`);
     console.log(`  ${chalk.cyan(pulled.appPath)}`);
     console.log("");
-    console.log("  Files:");
-    console.log(`    - App.tsx (${pulled.codeBytes} bytes)`);
-    console.log(`    - a1zap.json`);
+    if (pulled.fileCount > 1) {
+      console.log(`  Files: ${pulled.fileCount} source files`);
+      console.log(`    - a1zap.json`);
+    } else {
+      console.log("  Files:");
+      console.log(`    - App.tsx (${pulled.codeBytes} bytes)`);
+      console.log(`    - a1zap.json`);
+    }
     if (pulled.cssBytes !== null) {
       console.log(`    - styles.css (${pulled.cssBytes} bytes)`);
     }

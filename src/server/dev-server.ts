@@ -9,6 +9,32 @@ import chalk from "chalk";
 import { transform } from "sucrase";
 import type { AppConfig } from "../config.js";
 import { getPreviewHTML } from "./preview.js";
+import { bundleMultiFileApp } from "../bundler.js";
+
+/**
+ * Collect all .tsx/.ts files in a directory tree (excluding node_modules, .git, a1zap.json).
+ * Returns a map of relative paths to source code.
+ */
+function collectAppFiles(projectDir: string): Record<string, string> {
+  const files: Record<string, string> = {};
+
+  function walk(dir: string, prefix: string): void {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "node_modules" || entry.name === ".git") continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, prefix ? `${prefix}/${entry.name}` : entry.name);
+      } else if (/\.(tsx?|jsx?)$/.test(entry.name) && entry.name !== "a1zap.json") {
+        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        files[relPath] = fs.readFileSync(fullPath, "utf-8");
+      }
+    }
+  }
+
+  walk(projectDir, "");
+  return files;
+}
 
 interface DevServerOptions {
   port: number;
@@ -102,27 +128,38 @@ export function startDevServer(
     }
   });
 
-  // Serve app code (pre-transpiled)
+  // Serve app code (pre-transpiled, with multi-file bundling)
   app.get("/app-code", (_req, res) => {
     try {
-      const code = fs.readFileSync(entryPath, "utf-8");
-      
-      // Strip imports and prepare for browser execution
-      let processed = code
-        // Remove import statements
+      const files = collectAppFiles(projectDir);
+      const fileCount = Object.keys(files).length;
+
+      let bundled: string;
+      if (fileCount > 1) {
+        // Multi-file: bundle via dependency graph
+        console.log(chalk.dim(`  Bundling ${fileCount} files...`));
+        bundled = bundleMultiFileApp(files, entryFile);
+      } else {
+        // Single file: read entry directly
+        bundled = fs.readFileSync(entryPath, "utf-8");
+      }
+
+      // Strip external imports and prepare for browser execution
+      let processed = bundled
+        // Remove import statements (external — local ones already stripped by bundler)
         .replace(/^import[\s\S]*?from\s+['"][^'"]+['"];?\s*\n?/gm, '')
         // Handle default function export
         .replace(/export\s+default\s+function\s+(\w+)/g, 'function App')
         // Handle default const/expression export
         .replace(/export\s+default\s+/g, 'const App = ');
-      
+
       // Transpile JSX/TypeScript to JavaScript
       const { code: transpiled } = transform(processed, {
         transforms: ["typescript", "jsx"],
         jsxRuntime: "classic",
         production: false,
       });
-      
+
       res.type("text/javascript").send(transpiled);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";

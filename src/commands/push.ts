@@ -13,6 +13,31 @@ import {
   type AppConfig,
 } from "../config.js";
 
+/**
+ * Collect all .tsx/.ts files in a directory tree for multi-file push.
+ * Returns a map of relative paths to source code.
+ */
+function collectAppFiles(projectDir: string): Record<string, string> {
+  const files: Record<string, string> = {};
+
+  function walk(dir: string, prefix: string): void {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "node_modules" || entry.name === ".git") continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, prefix ? `${prefix}/${entry.name}` : entry.name);
+      } else if (/\.(tsx?|jsx?)$/.test(entry.name) && entry.name !== "a1zap.json") {
+        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        files[relPath] = fs.readFileSync(fullPath, "utf-8");
+      }
+    }
+  }
+
+  walk(projectDir, "");
+  return files;
+}
+
 interface PushOptions {
   message?: string;
 }
@@ -88,9 +113,22 @@ export async function pushCommand(
     const commitMessage = options.message || `Updated via ${getCliCommandName()}`;
     const currentAppConfig = appConfig;
 
-    console.log(chalk.dim(`Pushing ${currentAppConfig.name}...`));
+    // Collect all source files for multi-file support
+    const files = collectAppFiles(appDir);
+    const fileCount = Object.keys(files).length;
 
-    const result = await pushAppCode(currentAppConfig.appId, code, commitMessage);
+    if (fileCount > 1) {
+      console.log(chalk.dim(`Pushing ${currentAppConfig.name} (${fileCount} files)...`));
+    } else {
+      console.log(chalk.dim(`Pushing ${currentAppConfig.name}...`));
+    }
+
+    const result = await pushAppCode(
+      currentAppConfig.appId,
+      code,
+      commitMessage,
+      fileCount > 1 ? files : undefined
+    );
 
     // Update local version
     currentAppConfig.version = result.version;

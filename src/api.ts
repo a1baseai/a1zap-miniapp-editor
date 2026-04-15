@@ -22,6 +22,7 @@ export interface AppCode {
   version: number;
   designSystem?: unknown;
   appConfig?: unknown;
+  files?: Record<string, string>;
 }
 
 export interface PushResult {
@@ -256,12 +257,14 @@ export async function getAppCode(appId: string): Promise<AppCode> {
 export async function pushAppCode(
   appId: string,
   code: string,
-  commitMessage: string
+  commitMessage: string,
+  files?: Record<string, string>
 ): Promise<PushResult> {
-  return apiRequest<PushResult>("PUT", `/api/developer/apps/${appId}/code`, {
-    code,
-    commitMessage,
-  });
+  const body: Record<string, unknown> = { code, commitMessage };
+  if (files) {
+    body.files = files;
+  }
+  return apiRequest<PushResult>("PUT", `/api/developer/apps/${appId}/code`, body);
 }
 
 /**
