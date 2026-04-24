@@ -48,9 +48,15 @@ export function buildCli(options: BuildCliOptions = {}): Command {
     .option("-f, --force", "Overwrite existing local files")
     .option("--here", "Pull to current directory instead of workspace")
     .option("-d, --dir <path>", "Pull to a specific directory")
-    .action(async (appIdOrHandle: string, cliOptions: { force?: boolean; here?: boolean; dir?: string }) => {
-      await pullCommand(appIdOrHandle, cliOptions);
-    });
+    .option("--agent-docs", "Include local agent docs for Codex/Cursor guidance")
+    .action(
+      async (
+        appIdOrHandle: string,
+        cliOptions: { force?: boolean; here?: boolean; dir?: string; agentDocs?: boolean }
+      ) => {
+        await pullCommand(appIdOrHandle, cliOptions);
+      }
+    );
 
   program
     .command("create <handle>")

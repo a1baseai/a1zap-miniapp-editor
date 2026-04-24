@@ -41,6 +41,7 @@
   "files": [
     "dist",
     "bin",
+    "agent-docs",
     "install.sh",
     "install-admin.sh",
     "install.ps1",

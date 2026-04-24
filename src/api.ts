@@ -222,19 +222,121 @@ interface ListAppsResponse {
   count: number;
 }
 
-/**
- * List all available apps
- */
-export async function listApps(options: { scope?: AppListScope } = {}): Promise<RemoteApp[]> {
+interface ListAppsRequestOptions {
+  scope?: AppListScope;
+  limit?: number;
+  offset?: number;
+  page?: number;
+}
+
+function buildListAppsEndpoint(options: ListAppsRequestOptions = {}): string {
   const params = new URLSearchParams();
   if (options.scope === "system") {
     params.set("scope", "system");
   }
+  if (typeof options.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+  if (typeof options.offset === "number") {
+    params.set("offset", String(options.offset));
+  }
+  if (typeof options.page === "number") {
+    params.set("page", String(options.page));
+  }
 
   const query = params.toString();
-  const endpoint = query ? `/api/developer/apps?${query}` : "/api/developer/apps";
-  const response = await apiRequest<ListAppsResponse>("GET", endpoint);
-  return response.apps;
+  return query ? `/api/developer/apps?${query}` : "/api/developer/apps";
+}
+
+async function listAppsPage(options: ListAppsRequestOptions = {}): Promise<ListAppsResponse> {
+  return apiRequest<ListAppsResponse>("GET", buildListAppsEndpoint(options));
+}
+
+function appendUniqueApps(target: RemoteApp[], apps: RemoteApp[], seenIds: Set<string>): number {
+  let appended = 0;
+  for (const app of apps) {
+    if (seenIds.has(app.id)) {
+      continue;
+    }
+    seenIds.add(app.id);
+    target.push(app);
+    appended += 1;
+  }
+  return appended;
+}
+
+async function listAppsWithOffsetPagination(
+  scope: AppListScope | undefined,
+  pageSize: number,
+  initialResponse: ListAppsResponse
+): Promise<RemoteApp[]> {
+  const apps: RemoteApp[] = [];
+  const seenIds = new Set<string>();
+  appendUniqueApps(apps, initialResponse.apps, seenIds);
+
+  let offset = initialResponse.apps.length;
+  while (apps.length < initialResponse.count) {
+    const response = await listAppsPage({ scope, limit: pageSize, offset });
+    if (response.apps.length === 0) {
+      break;
+    }
+
+    const appended = appendUniqueApps(apps, response.apps, seenIds);
+    if (appended === 0) {
+      break;
+    }
+
+    offset += response.apps.length;
+  }
+
+  return apps;
+}
+
+async function listAppsWithPagePagination(
+  scope: AppListScope | undefined,
+  pageSize: number,
+  initialResponse: ListAppsResponse
+): Promise<RemoteApp[]> {
+  const apps: RemoteApp[] = [];
+  const seenIds = new Set<string>();
+  appendUniqueApps(apps, initialResponse.apps, seenIds);
+
+  let page = 2;
+  while (apps.length < initialResponse.count) {
+    const response = await listAppsPage({ scope, limit: pageSize, page });
+    if (response.apps.length === 0) {
+      break;
+    }
+
+    const appended = appendUniqueApps(apps, response.apps, seenIds);
+    if (appended === 0) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return apps;
+}
+
+/**
+ * List all available apps
+ */
+export async function listApps(options: { scope?: AppListScope } = {}): Promise<RemoteApp[]> {
+  const pageSize = 500;
+  const initialResponse = await listAppsPage({ scope: options.scope, limit: pageSize });
+
+  if (initialResponse.apps.length >= initialResponse.count) {
+    return initialResponse.apps;
+  }
+
+  const offsetApps = await listAppsWithOffsetPagination(options.scope, pageSize, initialResponse);
+  if (offsetApps.length >= initialResponse.count) {
+    return offsetApps;
+  }
+
+  const pagedApps = await listAppsWithPagePagination(options.scope, pageSize, initialResponse);
+  return pagedApps.length > offsetApps.length ? pagedApps : offsetApps;
 }
 
 /**

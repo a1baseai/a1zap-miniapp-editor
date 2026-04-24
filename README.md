@@ -139,9 +139,15 @@ a1zap pull @my-app
 a1zap pull my-app
 # or by ID:
 a1zap pull xs726ffzxzmra3rawxqbtgmryh7zge0s
+# include local agent docs for Codex, Cursor, and other coding agents:
+a1zap pull @my-app --agent-docs
 ```
 
 Apps are stored in `~/a1zap-apps/<handle>/` on macOS/Linux and `%USERPROFILE%\a1zap-apps\<handle>\` on Windows.
+
+Use `--agent-docs` when you want Codex, Cursor, or another coding agent to have the mini app runtime references locally. It copies `agent-docs/` into the app folder and creates a small root `AGENTS.md` entrypoint that tells agents to read the deep guides only when the change touches that area.
+
+If the app already exists locally, `a1zap pull @my-app --agent-docs` refreshes only the docs and leaves `App.tsx`, `styles.css`, and `a1zap.json` untouched. Add `--force` when you intentionally want to repull app code too.
 
 ### Create a Template App (Admin)
 
@@ -277,7 +283,9 @@ Each pulled app has this structure:
 ~/a1zap-apps/<handle>/
 ├── a1zap.json    # App metadata
 ├── App.tsx       # Main component
-└── styles.css    # Optional CSS
+├── styles.css    # Optional CSS
+├── AGENTS.md     # Optional agent entrypoint from --agent-docs
+└── agent-docs/   # Optional runtime references from --agent-docs
 ```
 
 On Windows, the default workspace path is `%USERPROFILE%\a1zap-apps\<handle>\`.

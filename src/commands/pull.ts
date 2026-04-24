@@ -2,6 +2,7 @@ import chalk from "chalk";
 import fs from "fs";
 import path from "path";
 import { ApiError, AppListScope, findAppByHandle, getAppCode, listApps } from "../api.js";
+import { copyAgentDocsToApp, type CopyAgentDocsResult } from "../agent-docs.js";
 import { formatCommand } from "../cli-meta.js";
 import {
   getAppPath,
@@ -16,6 +17,7 @@ export interface PullOptions {
   force?: boolean;
   here?: boolean;
   dir?: string;
+  agentDocs?: boolean;
 }
 
 interface PullResult {
@@ -26,6 +28,8 @@ interface PullResult {
   codeBytes: number;
   cssBytes: number | null;
   fileCount: number;
+  agentDocs: CopyAgentDocsResult | null;
+  docsOnly: boolean;
 }
 
 interface ResolvedApp {
@@ -36,7 +40,7 @@ interface ResolvedApp {
 
 export interface SyncAppsResult {
   total: number;
-  pulled: Array<{ handle: string; path: string }>;
+  pulled: Array<{ handle: string; path: string; agentDocsPath: string | null }>;
   skipped: string[];
   failed: Array<{ handle: string; error: string }>;
 }
@@ -112,6 +116,25 @@ async function pullAppById(appId: string, options: PullOptions): Promise<PullRes
   const existsAtTarget = appExistsAtPath(appPath);
 
   if ((existsInWorkspace || existsAtTarget) && !options.force) {
+    if (options.agentDocs && existsAtTarget) {
+      const agentDocs = copyAgentDocsToApp(appPath);
+
+      return {
+        appId: appCode.id,
+        appName: appCode.name,
+        handle: appCode.handle,
+        appPath,
+        codeBytes: appCode.code.length,
+        cssBytes: appCode.css ? appCode.css.length : null,
+        fileCount:
+          appCode.files && Object.keys(appCode.files).length > 1
+            ? Object.keys(appCode.files).length
+            : 1,
+        agentDocs,
+        docsOnly: true,
+      };
+    }
+
     if (existsAtTarget) {
       throw new Error(`App already exists at ${appPath}. Use --force to overwrite.`);
     }
@@ -153,6 +176,8 @@ async function pullAppById(appId: string, options: PullOptions): Promise<PullRes
     fs.writeFileSync(path.join(appPath, "styles.css"), appCode.css);
   }
 
+  const agentDocs = options.agentDocs ? copyAgentDocsToApp(appPath) : null;
+
   return {
     appId: appCode.id,
     appName: appCode.name,
@@ -161,10 +186,15 @@ async function pullAppById(appId: string, options: PullOptions): Promise<PullRes
     codeBytes: appCode.code.length,
     cssBytes: appCode.css ? appCode.css.length : null,
     fileCount: hasMultiFile ? Object.keys(appCode.files!).length : 1,
+    agentDocs,
+    docsOnly: false,
   };
 }
 
-async function syncRemoteAppsToWorkspace(appScope: AppListScope): Promise<SyncAppsResult> {
+async function syncRemoteAppsToWorkspace(
+  appScope: AppListScope,
+  options: Pick<PullOptions, "agentDocs"> = {}
+): Promise<SyncAppsResult> {
   const remoteApps = await listApps({ scope: appScope });
   const result: SyncAppsResult = {
     total: remoteApps.length,
@@ -180,8 +210,12 @@ async function syncRemoteAppsToWorkspace(appScope: AppListScope): Promise<SyncAp
     }
 
     try {
-      const pulled = await pullAppById(app.id, {});
-      result.pulled.push({ handle: pulled.handle, path: pulled.appPath });
+      const pulled = await pullAppById(app.id, { agentDocs: options.agentDocs });
+      result.pulled.push({
+        handle: pulled.handle,
+        path: pulled.appPath,
+        agentDocsPath: pulled.agentDocs?.docsPath ?? null,
+      });
     } catch (error) {
       result.failed.push({
         handle: app.handle,
@@ -214,7 +248,7 @@ async function pullAllSystemAppsCommand(options: PullOptions): Promise<void> {
 
   let result: SyncAppsResult;
   try {
-    result = await syncRemoteAppsToWorkspace("system");
+    result = await syncRemoteAppsToWorkspace("system", { agentDocs: options.agentDocs });
   } catch (error) {
     if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
       throw new Error(`${formatCommand(`pull ${ALL_SYSTEM_PULL_REF}`)} requires the admin master key.`);
@@ -231,7 +265,10 @@ async function pullAllSystemAppsCommand(options: PullOptions): Promise<void> {
   console.log("");
 
   for (const app of result.pulled) {
-    console.log(chalk.green("✓") + ` Pulled @${app.handle} to ${chalk.cyan(app.path)}`);
+    const docsSuffix = app.agentDocsPath ? ` with agent docs at ${chalk.cyan(app.agentDocsPath)}` : "";
+    console.log(
+      chalk.green("✓") + ` Pulled @${app.handle} to ${chalk.cyan(app.path)}${docsSuffix}`
+    );
   }
 
   for (const handle of result.skipped) {
@@ -272,19 +309,32 @@ export async function pullCommand(
     const pulled = await pullAppById(appId, options);
 
     console.log("");
-    console.log(chalk.green("✓") + ` Pulled ${chalk.bold(pulled.appName)} to:`);
+    if (pulled.docsOnly) {
+      console.log(chalk.green("✓") + ` Refreshed agent docs for ${chalk.bold(pulled.appName)} in:`);
+    } else {
+      console.log(chalk.green("✓") + ` Pulled ${chalk.bold(pulled.appName)} to:`);
+    }
     console.log(`  ${chalk.cyan(pulled.appPath)}`);
     console.log("");
-    if (pulled.fileCount > 1) {
-      console.log(`  Files: ${pulled.fileCount} source files`);
+    console.log("  Files:");
+    if (!pulled.docsOnly) {
+      if (pulled.fileCount > 1) {
+        console.log(`    - ${pulled.fileCount} source files`);
+      } else {
+        console.log(`    - App.tsx (${pulled.codeBytes} bytes)`);
+      }
       console.log(`    - a1zap.json`);
-    } else {
-      console.log("  Files:");
-      console.log(`    - App.tsx (${pulled.codeBytes} bytes)`);
-      console.log(`    - a1zap.json`);
+      if (pulled.cssBytes !== null) {
+        console.log(`    - styles.css (${pulled.cssBytes} bytes)`);
+      }
     }
-    if (pulled.cssBytes !== null) {
-      console.log(`    - styles.css (${pulled.cssBytes} bytes)`);
+    if (pulled.agentDocs) {
+      console.log(`    - agent-docs/ (${pulled.agentDocs.docsFileCount} files)`);
+      console.log(
+        `    - AGENTS.md ${
+          pulled.agentDocs.rootAgentFileCreated ? "(created)" : "(kept existing)"
+        }`
+      );
     }
     console.log("");
 
