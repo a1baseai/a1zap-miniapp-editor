@@ -321,6 +321,21 @@ npm run dev   # Watch mode
 npm link      # Link globally for testing
 ```
 
+### Keeping Your Branch Updated
+
+If `git pull` says your branch has diverged and asks how to reconcile it, use rebase for this repo:
+
+```bash
+git config pull.rebase true
+git pull
+```
+
+For a one-off pull without changing repo config:
+
+```bash
+git pull --rebase
+```
+
 ## Environment Variables
 
 - `A1ZAP_API_URL` - Override the API URL (default: https://a1zap.com)
