@@ -244,6 +244,7 @@ The dev server provides:
 - Live preview at http://localhost:4321
 - Hot reload on file changes
 - Mock user context for testing
+- A Load JSON popup for injecting local `data`, `sharedData`, `myPersonalData`, or a full runtime fixture into the browser preview
 
 ### Push Changes
 
