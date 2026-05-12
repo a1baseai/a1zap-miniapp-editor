@@ -1,5 +1,5 @@
-import { getConfig, getApiUrl } from "./config.js";
-import { formatCommand } from "./cli-meta.js";
+import { getApiKey, getApiUrl } from "./config.js";
+import { formatCommand, getApiKeyEnvVarNames } from "./cli-meta.js";
 
 export interface RemoteApp {
   id: string;
@@ -163,14 +163,16 @@ export class ApiError extends Error {
  * Get authorization headers for API requests
  */
 function getAuthHeaders(): Record<string, string> {
-  const config = getConfig();
-  if (!config.apiKey) {
-    throw new Error(`Not configured. Run: ${formatCommand("config <api-key>")}`);
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error(
+      `Not configured. Run: ${formatCommand("config <api-key>")} or set ${getApiKeyEnvVarNames().join(" / ")}.`
+    );
   }
 
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${config.apiKey}`,
+    Authorization: `Bearer ${apiKey}`,
   };
 }
 
