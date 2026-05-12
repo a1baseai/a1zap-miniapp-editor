@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import {
+  getApiKeyEnvVarNames,
   getApiUrlEnvVarNames,
   getCliConfigDir,
   getCliDefaultWorkspace,
@@ -77,6 +78,33 @@ export function getConfig(): A1ZapConfig {
 export function saveConfig(config: A1ZapConfig): void {
   ensureConfigDir();
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+/**
+ * Get the API key from environment or config.
+ */
+export function getApiKey(): string | null {
+  for (const envVarName of getApiKeyEnvVarNames()) {
+    const value = process.env[envVarName];
+    if (value) {
+      return value;
+    }
+  }
+
+  return getConfig().apiKey;
+}
+
+/**
+ * Get where the active API key is configured.
+ */
+export function getApiKeySource(): string | null {
+  for (const envVarName of getApiKeyEnvVarNames()) {
+    if (process.env[envVarName]) {
+      return envVarName;
+    }
+  }
+
+  return getConfig().apiKey ? CONFIG_FILE : null;
 }
 
 /**

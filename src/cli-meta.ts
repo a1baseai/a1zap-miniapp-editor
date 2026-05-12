@@ -37,6 +37,10 @@ export function getApiUrlEnvVarNames(): string[] {
   return isAdminCli() ? ["A1ZAP_ADMIN_API_URL", "A1ZAP_API_URL"] : ["A1ZAP_API_URL"];
 }
 
+export function getApiKeyEnvVarNames(): string[] {
+  return isAdminCli() ? ["A1ZAP_ADMIN_API_KEY", "A1ZAP_API_KEY"] : ["A1ZAP_API_KEY"];
+}
+
 export function getWorkspaceEnvVarNames(): string[] {
   return isAdminCli()
     ? ["A1ZAP_ADMIN_WORKSPACE", "A1ZAP_WORKSPACE"]
