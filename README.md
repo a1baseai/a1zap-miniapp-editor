@@ -272,12 +272,15 @@ a1zap dev
 Set-Location ~/a1zap-apps/my-app
 a1zap dev
 
-# Custom port:
+# Custom starting port:
 a1zap dev @my-app -p 3000
+
+# Exact custom port (fails if already in use):
+a1zap dev @my-app -p 3000 --strict-port
 ```
 
 The dev server provides:
-- Live preview at http://localhost:4321
+- Live preview at the printed loopback URL (`http://127.0.0.1:4321` by default), or the next available port if 4321 is already in use
 - Hot reload on file changes
 - Mock user context for testing
 - A Load JSON popup for injecting local `data`, `sharedData`, `myPersonalData`, or a full runtime fixture into the browser preview

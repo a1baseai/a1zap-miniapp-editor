@@ -10,6 +10,7 @@ import { startDevServer } from "../server/dev-server.js";
 
 interface DevOptions {
   port: string;
+  strictPort?: boolean;
 }
 
 /**
@@ -56,5 +57,5 @@ export async function devCommand(
     process.exit(1);
   }
 
-  startDevServer(appDir, appConfig, { port });
+  startDevServer(appDir, appConfig, { port, strictPort: options.strictPort });
 }

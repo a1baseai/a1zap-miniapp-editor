@@ -130,7 +130,7 @@ Ask before running admin commands that create, copy, attach, change publication 
 - Wrong workspace: check `a1zap config` and `a1zap open @handle`; use `A1ZAP_WORKSPACE` or `a1zap config --workspace <path>` if needed.
 - Existing local app: `a1zap pull @handle` refreshes docs only. Use `--merge` to safely bring in newer remote code, or `--force` only when intentionally overwriting local app files.
 - Need an older published app state: use `a1zap versions` then `a1zap revert`; do not try to reconstruct old versions manually.
-- Dev server port conflict: retry with `a1zap dev @handle -p 4322` or another free port.
+- Dev server port conflict: `a1zap dev @handle` automatically tries the next available port after 4321; use `-p <port>` to choose a different starting point, or `-p <port> --strict-port` to require an exact port.
 - Remote side effects: `push`, `revert`/`rollback`, admin `create`, `copy`, `attach`, and publication changes should not run without user confirmation.
 
 ## Verification

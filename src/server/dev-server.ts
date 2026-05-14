@@ -38,9 +38,17 @@ function collectAppFiles(projectDir: string): Record<string, string> {
 
 interface DevServerOptions {
   port: number;
+  strictPort?: boolean;
 }
 
-function listenWithPortFallback(server: http.Server, preferredPort: number): Promise<number> {
+const DEV_SERVER_HOST = "127.0.0.1";
+
+function listenWithPortFallback(
+  server: http.Server,
+  preferredPort: number,
+  host: string,
+  strictPort: boolean
+): Promise<number> {
   return new Promise((resolve, reject) => {
     const tryListen = (port: number) => {
       const handleListening = () => {
@@ -56,6 +64,15 @@ function listenWithPortFallback(server: http.Server, preferredPort: number): Pro
       const handleError = (error: NodeJS.ErrnoException) => {
         server.off("listening", handleListening);
 
+        if (error.code === "EADDRINUSE" && strictPort) {
+          reject(
+            new Error(
+              `Port ${port} is already in use on ${host}. Choose another port with -p <port>, or omit --strict-port to try the next available port automatically.`
+            )
+          );
+          return;
+        }
+
         if (error.code === "EADDRINUSE" && port < 65535) {
           const nextPort = port + 1;
           console.log(chalk.yellow("!") + ` Port ${port} is in use, trying ${nextPort}...`);
@@ -68,7 +85,7 @@ function listenWithPortFallback(server: http.Server, preferredPort: number): Pro
 
       server.once("listening", handleListening);
       server.once("error", handleError);
-      server.listen(port);
+      server.listen(port, host);
     };
 
     tryListen(preferredPort);
@@ -95,6 +112,10 @@ export function startDevServer(
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
   let activePort = options.port;
+
+  wss.on("error", () => {
+    // The HTTP server error handler owns startup failures, including port fallback.
+  });
 
   // Track connected clients
   const clients = new Set<WebSocket>();
@@ -185,11 +206,11 @@ export function startDevServer(
 
   // Serve preview HTML
   app.get("/", (_req, res) => {
-    res.type("html").send(getPreviewHTML(config, activePort));
+    res.type("html").send(getPreviewHTML(config, activePort, DEV_SERVER_HOST));
   });
 
   // Start server
-  listenWithPortFallback(server, options.port)
+  listenWithPortFallback(server, options.port, DEV_SERVER_HOST, Boolean(options.strictPort))
     .then((resolvedPort) => {
       activePort = resolvedPort;
       console.log("");
@@ -200,7 +221,7 @@ export function startDevServer(
       console.log(`  ${chalk.dim("Version:")}  v${config.version}`);
       console.log(`  ${chalk.dim("Entry:")}    ${entryFile}`);
       console.log("");
-      console.log(`  ${chalk.dim("Preview:")}  ${chalk.cyan(`http://localhost:${resolvedPort}`)}`);
+      console.log(`  ${chalk.dim("Preview:")}  ${chalk.cyan(`http://${DEV_SERVER_HOST}:${resolvedPort}`)}`);
       console.log(`  ${chalk.dim("Dir:")}      ${projectDir}`);
       console.log("");
       console.log(chalk.dim("  Watching for changes... Press Ctrl+C to stop."));

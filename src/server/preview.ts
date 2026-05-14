@@ -8,8 +8,9 @@ function scriptString(value: string): string {
  * Generate the preview HTML for the dev server
  * Code is pre-transpiled server-side, so no browser-side transpilation needed
  */
-export function getPreviewHTML(config: AppConfig, port: number): string {
+export function getPreviewHTML(config: AppConfig, port: number, host = "127.0.0.1"): string {
   const devDataStorageKey = `a1zap-dev-data:${config.handle}`;
+  const websocketUrl = `ws://${host}:${port}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -622,7 +623,7 @@ export function getPreviewHTML(config: AppConfig, port: number): string {
     updateDevDataButton();
 
     // WebSocket for hot reload
-    const ws = new WebSocket('ws://localhost:${port}');
+    const ws = new WebSocket(${scriptString(websocketUrl)});
 
     ws.onopen = () => {
       console.log('[A1Zap Dev] Hot reload connected');

@@ -225,8 +225,9 @@ export function buildCli(options: BuildCliOptions = {}): Command {
   program
     .command("dev [handle]")
     .description("Start local development server with hot reload")
-    .option("-p, --port <port>", "Port number", "4321")
-    .action(async (handle: string | undefined, cliOptions: { port: string }) => {
+    .option("-p, --port <port>", "Starting port number; falls back to the next available port", "4321")
+    .option("--strict-port", "Fail if the requested port is already in use")
+    .action(async (handle: string | undefined, cliOptions: { port: string; strictPort?: boolean }) => {
       await devCommand(handle, cliOptions);
     });
 
