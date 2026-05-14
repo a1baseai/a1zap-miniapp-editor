@@ -20,6 +20,7 @@ Most important usage rule:
 Use these docs together:
 
 - [AGENTS.md](AGENTS.md) for the fast agent guardrails on what not to do if you want a mini app to keep working.
+- [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) for mobile-first app structure, native-feeling navigation, typography, scaling, and anti-generic visual rules.
 - [AGENTS_FEATURE_SETS.md](AGENTS_FEATURE_SETS.md) for practical feature-set recipes and which runtime patterns to combine.
 - [MINI_APP_FEATURE_MASTER_LIST.md](MINI_APP_FEATURE_MASTER_LIST.md) for the feature matrix and where each capability shows up.
 - [MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md](MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md) for runtime-safe game patterns, score submission, leaderboards, and social/solo fallback.
@@ -34,8 +35,9 @@ Use these docs together:
 Suggested read order:
 
 1. Start with [AGENTS.md](AGENTS.md) for the non-negotiable runtime guardrails.
-2. Read [AGENTS_FEATURE_SETS.md](AGENTS_FEATURE_SETS.md) to choose the right implementation shape for the app.
-3. Use [MINI_APP_FEATURE_MASTER_LIST.md](MINI_APP_FEATURE_MASTER_LIST.md) as the capability matrix.
-4. If the app is a game, read [MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md](MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md) next. If it is map-first or location-aware, read [MINI_APP_MAPS_AND_LOCATION_REFERENCE.md](MINI_APP_MAPS_AND_LOCATION_REFERENCE.md) next.
-5. Read the runtime guides you actually need for the app you are building.
-6. Check [MINI_APP_SURFACES_AND_SHARING_REFERENCE.md](MINI_APP_SURFACES_AND_SHARING_REFERENCE.md) before writing copy or UX that depends on feed, share, or builder behavior.
+2. Read [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) before creating a new app, redesigning an app, or touching significant UI.
+3. Read [AGENTS_FEATURE_SETS.md](AGENTS_FEATURE_SETS.md) to choose the right implementation shape for the app.
+4. Use [MINI_APP_FEATURE_MASTER_LIST.md](MINI_APP_FEATURE_MASTER_LIST.md) as the capability matrix.
+5. If the app is a game, read [MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md](MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md) next. If it is map-first or location-aware, read [MINI_APP_MAPS_AND_LOCATION_REFERENCE.md](MINI_APP_MAPS_AND_LOCATION_REFERENCE.md) next.
+6. Read the runtime guides you actually need for the app you are building.
+7. Check [MINI_APP_SURFACES_AND_SHARING_REFERENCE.md](MINI_APP_SURFACES_AND_SHARING_REFERENCE.md) before writing copy or UX that depends on feed, share, or builder behavior.

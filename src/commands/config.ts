@@ -49,7 +49,7 @@ export async function configCommand(apiKey: string): Promise<void> {
     }
 
     for (const handle of result.skipped) {
-      console.log(chalk.yellow("!") + ` Skipped @${handle} (already exists locally)`);
+      console.log(chalk.yellow("!") + ` Skipped @${handle} (already exists locally; refreshed agent docs)`);
     }
 
     for (const failure of result.failed) {

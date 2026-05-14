@@ -6,11 +6,14 @@ Use it to avoid breaking runtime behavior, storage, sharing, preview, and host-s
 
 ## Default Approach
 
-1. Preserve the app's current layout and visual identity unless the prompt explicitly asks for a redesign.
-2. Make the app fully usable solo first.
-3. Add shared or social value as an enhancement, not as the only way the app works.
-4. Use runtime helpers before inventing custom browser or network flows.
-5. Read the feature-specific guide before implementing a non-trivial capability.
+1. Design mobile-first. New apps must feel like phone-native product experiences, not stretched desktop pages or generic AI hero cards.
+2. Preserve the app's current layout and visual identity unless the prompt explicitly asks for a redesign.
+3. Make the app fully usable solo first.
+4. Add shared or social value as an enhancement, not as the only way the app works.
+5. Use runtime helpers before inventing custom browser or network flows.
+6. Read the feature-specific guide before implementing a non-trivial capability.
+
+For any new app, meaningful redesign, or UI-heavy edit, read [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) before generating code.
 
 ## Do Not Break The Runtime
 
@@ -79,14 +82,24 @@ Use it to avoid breaking runtime behavior, storage, sharing, preview, and host-s
 - Do not rebuild feed chrome, standalone shell chrome, share UI, or maker attribution inside the app when the host surface already provides it.
 - Add compatibility with host surfaces before adding duplicate shell UI.
 
+### Mobile Design
+
+- Do not build mini apps like landing pages. The first screen should contain the real app workflow or game state.
+- Do not add a website-style navbar by default. Use a compact app bar, segmented control, tabs, bottom nav, sheets, or list/detail navigation.
+- Do not let a phone-first layout stretch to full desktop width without a deliberate desktop adaptation.
+- Do not default to the same Inter plus gradient plus rounded-card visual system for every app.
+- Reserve safe space for bottom nav, floating controls, chat, avatars, and stats so they never overlap body content.
+- Test mentally at 360px and 393px widths before shipping any layout.
+
 ## Practical Build Order
 
 1. Classify the app: solo utility, shared social app, game, map app, AI app, or media-heavy app.
 2. Pick the storage split first.
 3. Add only the runtime helpers the feature actually needs.
 4. Keep transient state local and persisted state coarse-grained.
-5. Use `designSystem` CSS variables only to make additions fit the current UI.
-6. Check surface behavior before adding feed, share, edit, or post-publish UX assumptions.
+5. Choose the mobile shell and navigation pattern before styling details.
+6. Use `designSystem` CSS variables only to make additions fit the current UI.
+7. Check surface behavior before adding feed, share, edit, or post-publish UX assumptions.
 
 ## Pre-Ship Checklist
 
@@ -103,9 +116,13 @@ Use it to avoid breaking runtime behavior, storage, sharing, preview, and host-s
 - Location usage is optional and correctly gated.
 - New UI fits the existing app instead of forcing a reskin.
 - The app does not duplicate host-surface chrome.
+- The app is usable at 360px wide without overlap or horizontal scroll.
+- The top area is compact and app-native, not a website navbar plus hero.
+- Typography and component shapes feel specific to the app subject, not like a generic AI template.
 
 ## Read Next
 
 - [MINI_APP_FEATURE_MASTER_LIST.md](MINI_APP_FEATURE_MASTER_LIST.md) for the runtime capability matrix.
+- [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) for mobile-first app shell, typography, navigation, and anti-generic design rules.
 - [AGENTS_FEATURE_SETS.md](AGENTS_FEATURE_SETS.md) for practical feature recipes.
 - [MINI_APP_SECURITY_AND_SANDBOX_REFERENCE.md](MINI_APP_SECURITY_AND_SANDBOX_REFERENCE.md) if the change touches browser APIs, fetch, preview, or security-sensitive behavior.

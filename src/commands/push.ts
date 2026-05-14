@@ -1,41 +1,30 @@
 import chalk from "chalk";
 import fs from "fs";
 import path from "path";
-import { pushAppCode } from "../api.js";
+import { ApiError, getAppCode, pushAppCode } from "../api.js";
 import { formatCommand, getCliCommandName } from "../cli-meta.js";
 import { getApiUrl } from "../config.js";
 import {
   getAppPath,
   getAppConfig,
-  saveAppConfig,
+  saveAppConfigToPath,
   detectAppFromCwd,
   detectAppDirFromCwd,
   type AppConfig,
 } from "../config.js";
+import {
+  buildRemoteRuntimeFiles,
+  collectAppSourceFiles,
+  collectTrackedRuntimeFiles,
+  saveBaseSnapshot,
+} from "../sync-state.js";
 
 /**
  * Collect all .tsx/.ts files in a directory tree for multi-file push.
  * Returns a map of relative paths to source code.
  */
 function collectAppFiles(projectDir: string): Record<string, string> {
-  const files: Record<string, string> = {};
-
-  function walk(dir: string, prefix: string): void {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.name === "node_modules" || entry.name === ".git") continue;
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath, prefix ? `${prefix}/${entry.name}` : entry.name);
-      } else if (/\.(tsx?|jsx?)$/.test(entry.name) && entry.name !== "a1zap.json") {
-        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-        files[relPath] = fs.readFileSync(fullPath, "utf-8");
-      }
-    }
-  }
-
-  walk(projectDir, "");
-  return files;
+  return collectAppSourceFiles(projectDir);
 }
 
 interface PushOptions {
@@ -112,6 +101,26 @@ export async function pushCommand(
     const code = fs.readFileSync(codePath, "utf-8");
     const commitMessage = options.message || `Updated via ${getCliCommandName()}`;
     const currentAppConfig = appConfig;
+    const stylesPath = path.join(appDir, "styles.css");
+    const css = fs.existsSync(stylesPath) ? fs.readFileSync(stylesPath, "utf-8") : undefined;
+
+    const remoteApp = await getAppCode(currentAppConfig.appId);
+    if (currentAppConfig.version < remoteApp.version) {
+      console.error(
+        chalk.red("✗ Remote changes found:") +
+          ` ${currentAppConfig.name} is on v${remoteApp.version}, but your local copy is v${currentAppConfig.version}.`
+      );
+      console.log("");
+      console.log("  I stopped before publishing so newer work is not overwritten.");
+      console.log(`  Safely bring in the latest version: ${chalk.bold(formatCommand(`pull --merge @${currentAppConfig.handle}`))}`);
+      console.log(`  Throw away local edits and repull: ${chalk.bold(formatCommand(`pull --force @${currentAppConfig.handle}`))}`);
+      console.log("");
+      process.exit(1);
+    }
+
+    if (currentAppConfig.version === remoteApp.version) {
+      saveBaseSnapshot(appDir, remoteApp.version, buildRemoteRuntimeFiles(remoteApp));
+    }
 
     // Collect all source files for multi-file support
     const files = collectAppFiles(appDir);
@@ -123,16 +132,18 @@ export async function pushCommand(
       console.log(chalk.dim(`Pushing ${currentAppConfig.name}...`));
     }
 
-    const result = await pushAppCode(
-      currentAppConfig.appId,
+    const result = await pushAppCode(currentAppConfig.appId, {
       code,
+      css,
       commitMessage,
-      fileCount > 1 ? files : undefined
-    );
+      expectedVersion: currentAppConfig.version,
+      files: fileCount > 1 ? files : undefined,
+    });
 
     // Update local version
     currentAppConfig.version = result.version;
-    saveAppConfig(currentAppConfig.handle, currentAppConfig);
+    saveAppConfigToPath(appDir, currentAppConfig);
+    saveBaseSnapshot(appDir, result.version, collectTrackedRuntimeFiles(appDir));
     const { publicUrl, feedUrl, editUrl } = buildAppUrls(currentAppConfig.appId);
 
     console.log("");
@@ -151,6 +162,15 @@ export async function pushCommand(
     
     console.log("");
   } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      console.error(chalk.red("✗ Version conflict:"), error.message);
+      console.log("");
+      console.log("  Someone published a newer version before this push finished.");
+      console.log(`  Safely bring it in: ${chalk.bold(formatCommand("pull --merge"))}`);
+      console.log("");
+      process.exit(1);
+    }
+
     if (error instanceof Error) {
       console.error(chalk.red("✗ Error:"), error.message);
     }

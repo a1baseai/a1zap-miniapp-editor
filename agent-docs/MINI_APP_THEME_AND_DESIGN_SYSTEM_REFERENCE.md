@@ -4,6 +4,8 @@ This guide documents how mini app theming works today, from builder vibes to run
 
 It should not be read as an instruction to redesign an app that already has a strong UI. In this docs set, theme guidance is mainly about making new or extended UI fit the app that already exists.
 
+For new apps, redesigns, or UI-heavy edits, read [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) first. Theme tokens are not a substitute for mobile app structure, native-feeling navigation, domain-specific typography, or small-screen layout checks.
+
 ## Theme Sources
 
 There are two main theme layers:
@@ -20,12 +22,15 @@ Use theme guidance to:
 - style new UI so it feels native to the app
 - keep additions visually aligned with the existing product
 - expose reusable tokens for extensions and platform surfaces
+- give generated apps a coherent token layer after the mobile app structure is already sound
 
 Do not use theme guidance to:
 
 - replace the app's layout with a generic shell
 - swap typography, spacing, or component shapes just because a vibe exists
 - flatten a distinctive design into default `var(--app-...)` fallbacks
+- turn every app into the same rounded card stack with gradients, pills, and generic sans typography
+- create a website-style navbar or marketing hero for an app workflow
 
 ## Runtime `designSystem` Shape
 
@@ -115,6 +120,8 @@ The runtime root falls back to:
 
 These are safety-net defaults, not design goals. If an app already has a strong visual language, do not collapse it down to these generic fallbacks.
 
+For generated apps, also avoid treating these fallbacks as the final visual identity. Choose a font stack, type scale, spacing rhythm, and component shape from the app's actual subject. `Inter` can be fine for a restrained utility, but it should not be the automatic answer for playful social apps, games, maps, camera tools, or campus experiences.
+
 ## Recommended Usage In App Code
 
 Prefer CSS variables over duplicating theme values inside component logic.
@@ -193,7 +200,8 @@ These surface hooks are about shell-level compatibility. They do not mean the in
 3. Prefer `var(--app-...)` tokens over hard-coded hex values for reusable surfaces.
 4. Use `customVars` when generated apps need a few extra tokens, not a second parallel theme system.
 5. Treat builder vibes as generation input, not as a runtime API contract.
-6. When prompting codegen agents, tell them to keep layout and hierarchy intact and use theme variables only where they touch the UI.
+6. Make the first layout decision mobile-native: compact app bar, focused screen body, native controls, and reserved safe space for bottom chrome.
+7. When prompting codegen agents, tell them to keep layout and hierarchy intact and use theme variables only where they touch the UI.
 
 ## Prompt Tips For Codegen Agents
 
@@ -201,3 +209,4 @@ These surface hooks are about shell-level compatibility. They do not mean the in
 2. “Use `var(--app-primary)`, `var(--app-background)`, and `var(--app-text)` for any new or modified UI instead of inventing a second color palette.”
 3. “Respect `--app-border-radius` and `--app-spacing` when adding cards, buttons, and list items so new features blend into the app.”
 4. “If the design needs one extra token, put it in `designSystem.customVars` and consume it with `var(--token)`.”
+5. “Do not use the theme system to produce a generic AI-looking app shell. Follow the mobile-native design guide before choosing tokens.”

@@ -6,6 +6,7 @@ This is the fastest way to see what exists today for mini apps on A1Zap.
 
 | Capability | Available | Notes | Guide |
 | --- | --- | --- | --- |
+| mobile-native design baseline | Yes | New apps and UI-heavy edits should target 360-430px first, use app-native navigation, and avoid generic AI card/gradient/pill shells | [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) |
 | `data`, `setData` | Yes | Solo/private persisted app data | [MICRO_APP_DATA_AND_USER_PROFILE_REFERENCE.md](MICRO_APP_DATA_AND_USER_PROFILE_REFERENCE.md) |
 | `sharedData`, `setSharedData`, `patchSharedData` | Yes | Shared session state with runtime-managed direct vs queued writes | [MICRO_APP_DATA_AND_USER_PROFILE_REFERENCE.md](MICRO_APP_DATA_AND_USER_PROFILE_REFERENCE.md) |
 | `pushToSharedArray` | Yes | Best for atomic shared array appends | [MICRO_APP_DATA_AND_USER_PROFILE_REFERENCE.md](MICRO_APP_DATA_AND_USER_PROFILE_REFERENCE.md) |
@@ -44,6 +45,7 @@ This is the fastest way to see what exists today for mini apps on A1Zap.
 
 | Guide | Use It When |
 | --- | --- |
+| [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) | You are creating a new mini app, redesigning an app, or touching significant layout, navigation, typography, controls, or responsive behavior |
 | [MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md](MINI_APP_GAMES_AND_SCORE_SYNC_REFERENCE.md) | You are building a game and need safe patterns for local gameplay, score submission, leaderboards, and social/solo fallback |
 | [MINI_APP_MAPS_AND_LOCATION_REFERENCE.md](MINI_APP_MAPS_AND_LOCATION_REFERENCE.md) | You are building a map-first or location-aware app and need patterns for map shells, geocoding, social place data, and durable map state |
 
@@ -57,9 +59,11 @@ This is the fastest way to see what exists today for mini apps on A1Zap.
 6. Build mini apps to be social-first, but keep solo mode complete and satisfying.
 7. Shared sessions should enrich an app that already works for one person; they should not be the only way the app makes sense.
 8. Use the runtime `designSystem` CSS variables to style new or extended UI so it fits the app, not as a reason to repaint the whole product.
-9. Do not document AI video generation or claim video understanding is production-ready yet.
-10. If you need location, make sure the app enables `appConfig.features.usesLocation`; otherwise `getCurrentLocation` is not injected.
-11. For map apps, keep viewport and interaction state local; persist durable contributions like places, labels, check-ins, votes, and media metadata.
+9. Design at phone width first. A 360px viewport must work without overlap, horizontal scroll, clipped buttons, or duplicated host chrome.
+10. Avoid generic generated styling: one-size Inter, giant rounded cards, pastel gradients, pill clouds, fake website nav, and decorative hero sections.
+11. Do not document AI video generation or claim video understanding is production-ready yet.
+12. If you need location, make sure the app enables `appConfig.features.usesLocation`; otherwise `getCurrentLocation` is not injected.
+13. For map apps, keep viewport and interaction state local; persist durable contributions like places, labels, check-ins, votes, and media metadata.
 
 ## Extra Rules For Games
 

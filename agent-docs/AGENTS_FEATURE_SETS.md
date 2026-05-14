@@ -4,12 +4,15 @@ This guide helps agents turn a product request into a runtime-safe mini app impl
 
 Use it after reading [AGENTS.md](AGENTS.md). The goal is to choose the smallest feature set that solves the request cleanly.
 
+For any new app, redesign, or UI-heavy change, also read [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md) before implementing layout, navigation, typography, or responsive behavior.
+
 ## How To Use This Guide
 
 1. Start with the base app shape.
 2. Add only the feature sets that materially improve the app.
 3. Keep solo mode complete even when the app supports shared sessions.
-4. Read the linked deep-dive docs before writing code in that area.
+4. Pick a phone-native shell and navigation pattern before styling details.
+5. Read the linked deep-dive docs before writing code in that area.
 
 ## Cross-Cutting Storage Rules
 

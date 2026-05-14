@@ -500,15 +500,16 @@ Current defaults:
 
 | Output | Default model |
 | --- | --- |
-| Text | `gpt-5-chat-latest` |
-| JSON | `gpt-5-chat-latest` |
-| Function calls | `gpt-5-chat-latest` |
+| Text | `gpt-5.5` |
+| JSON | `gpt-5.5` |
+| Function calls | `gpt-5.5` |
 | Image generation | `gemini-2.5-flash-image` |
 
 Current allowlist:
 
+- `gpt-5.5`
 - `gpt-5-chat-latest`
-- `claude-opus-4-6`
+- `claude-opus-4-7`
 - `gemini-2.5-pro`
 - `gemini-2.5-flash`
 - `gemini-2.5-flash-image`

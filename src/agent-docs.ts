@@ -12,8 +12,10 @@ This app includes A1Zap mini app docs in \`agent-docs/\`.
 Before editing:
 
 - Read \`agent-docs/AGENTS.md\` for runtime guardrails.
+- For new apps, redesigns, or UI-heavy edits, read \`agent-docs/MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md\`.
 - Use \`agent-docs/README.md\` to choose any feature-specific guide you need.
 - Preserve the existing app layout and visual identity unless the prompt explicitly asks for a redesign.
+- \`a1zap pull\` refreshes \`agent-docs/\` from the latest bundled docs.
 - Treat docs as reference material; read deeper guides only for capabilities touched by the change.
 `;
 
@@ -71,7 +73,15 @@ export function copyAgentDocsToApp(appPath: string): CopyAgentDocsResult {
     throw new Error(`${docsPath} already exists and is not a directory.`);
   }
 
+  if (path.resolve(sourceDocsPath) === path.resolve(docsPath)) {
+    throw new Error(`Bundled ${AGENT_DOCS_DIR_NAME} directory resolved to the target app docs path.`);
+  }
+
   fs.mkdirSync(appPath, { recursive: true });
+  if (fs.existsSync(docsPath)) {
+    fs.rmSync(docsPath, { recursive: true, force: true });
+  }
+
   fs.cpSync(sourceDocsPath, docsPath, {
     recursive: true,
     force: true,

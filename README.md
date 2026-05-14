@@ -139,15 +139,25 @@ a1zap pull @my-app
 a1zap pull my-app
 # or by ID:
 a1zap pull xs726ffzxzmra3rawxqbtgmryh7zge0s
-# include local agent docs for Codex, Cursor, and other coding agents:
-a1zap pull @my-app --agent-docs
 ```
 
 Apps are stored in `~/a1zap-apps/<handle>/` on macOS/Linux and `%USERPROFILE%\a1zap-apps\<handle>\` on Windows.
 
-Use `--agent-docs` when you want Codex, Cursor, or another coding agent to have the mini app runtime references locally. It copies `agent-docs/` into the app folder and creates a small root `AGENTS.md` entrypoint that tells agents to read the deep guides only when the change touches that area.
+Every pull includes local agent docs for Codex, Cursor, and other coding agents. The CLI copies `agent-docs/` into the app folder and creates a small root `AGENTS.md` entrypoint that tells agents to read the deep guides only when the change touches that area.
 
-If the app already exists locally, `a1zap pull @my-app --agent-docs` refreshes only the docs and leaves `App.tsx`, `styles.css`, and `a1zap.json` untouched. Add `--force` when you intentionally want to repull app code too.
+If the app already exists locally, `a1zap pull @my-app` refreshes only the docs and leaves `App.tsx`, `styles.css`, and `a1zap.json` untouched. Use `--merge` to safely bring in newer remote code, or `--force` when you intentionally want to replace local app files.
+
+### Safely Update an Existing Local App
+
+If `a1zap list` shows an app is outdated, use merge mode:
+
+```bash
+a1zap pull --merge @my-app
+```
+
+`--merge` keeps your local edits, brings in newer remote files when it can do so safely, and stops without changing app files if the same file changed in both places. When that happens, it writes a conflict package under `.a1zap/conflicts/` with `base`, `local`, and `remote` folders, plus a `flagged-files/` folder with easy snapshots such as `LOCAL_v3_App.tsx` and `REMOTE_v5_App.tsx`. Give that folder to Codex or another editor and ask it to resolve the conflict.
+
+`a1zap push` also checks the remote version before publishing. If your local copy is behind, it stops and tells you to run `a1zap pull --merge @my-app` instead of overwriting newer work.
 
 ### Create a Template App (Admin)
 
@@ -261,6 +271,30 @@ a1zap push -m "Updated layout"
 a1zap-admin update @my-app -m "Admin refresh"
 ```
 
+### View and Revert Versions
+
+List published versions:
+
+```bash
+a1zap versions @my-app
+# or from inside an app folder:
+a1zap versions
+```
+
+Revert the live app to an earlier published version:
+
+```bash
+a1zap revert @my-app v12 -m "Revert to stable v12"
+# or from inside an app folder:
+a1zap revert v12
+```
+
+Reverting publishes the selected version as a new latest version, so version numbers keep moving forward. If you have a local copy, pull after reverting:
+
+```bash
+a1zap pull --merge @my-app
+```
+
 ### Open App Folder
 
 Print the path to an app's folder (useful for shell navigation):
@@ -285,8 +319,8 @@ Each pulled app has this structure:
 ├── a1zap.json    # App metadata
 ├── App.tsx       # Main component
 ├── styles.css    # Optional CSS
-├── AGENTS.md     # Optional agent entrypoint from --agent-docs
-└── agent-docs/   # Optional runtime references from --agent-docs
+├── AGENTS.md     # Agent entrypoint
+└── agent-docs/   # Runtime and design references refreshed by pull
 ```
 
 On Windows, the default workspace path is `%USERPROFILE%\a1zap-apps\<handle>\`.

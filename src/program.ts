@@ -8,6 +8,7 @@ import { openCommand, listLocalPathsCommand } from "./commands/open.js";
 import { createCommand } from "./commands/create.js";
 import { attachCommand } from "./commands/attach.js";
 import { copyCommand } from "./commands/copy.js";
+import { revertCommand, versionsCommand } from "./commands/versions.js";
 import { getCliCommandName, getCliDescription } from "./cli-meta.js";
 
 interface BuildCliOptions {
@@ -48,11 +49,12 @@ export function buildCli(options: BuildCliOptions = {}): Command {
     .option("-f, --force", "Overwrite existing local files")
     .option("--here", "Pull to current directory instead of workspace")
     .option("-d, --dir <path>", "Pull to a specific directory")
-    .option("--agent-docs", "Include local agent docs for Codex/Cursor guidance")
+    .option("--agent-docs", "Refresh local agent docs (now done on every pull)")
+    .option("--merge", "Safely merge newer remote code into an existing local app")
     .action(
       async (
         appIdOrHandle: string,
-        cliOptions: { force?: boolean; here?: boolean; dir?: string; agentDocs?: boolean }
+        cliOptions: { force?: boolean; here?: boolean; dir?: string; agentDocs?: boolean; merge?: boolean }
       ) => {
         await pullCommand(appIdOrHandle, cliOptions);
       }
@@ -187,6 +189,28 @@ export function buildCli(options: BuildCliOptions = {}): Command {
     .action(async (handle: string | undefined, cliOptions: { message?: string }) => {
       await pushCommand(handle, cliOptions);
     });
+
+  program
+    .command("versions [appIdOrHandle]")
+    .description("List published versions for an app")
+    .action(async (appIdOrHandle: string | undefined) => {
+      await versionsCommand(appIdOrHandle);
+    });
+
+  program
+    .command("revert [appIdOrHandle] [version]")
+    .alias("rollback")
+    .description("Revert an app to an earlier published version")
+    .option("-m, --message <msg>", "Commit message")
+    .action(
+      async (
+        appIdOrHandle: string | undefined,
+        version: string | undefined,
+        cliOptions: { message?: string }
+      ) => {
+        await revertCommand(appIdOrHandle, version, cliOptions);
+      }
+    );
 
   if (options.includeUpdateAlias) {
     program

@@ -33,6 +33,50 @@ export interface PushResult {
   draftWarning?: string;
 }
 
+export interface PushPayload {
+  code: string;
+  css?: string;
+  commitMessage: string;
+  expectedVersion: number;
+  files?: Record<string, string>;
+}
+
+export interface AppVersion {
+  id: string;
+  version: number;
+  revision: number;
+  baseVersion: number;
+  status: "published";
+  createdAt: number;
+  updatedAt: number;
+  publishedAt?: number;
+  isLive: boolean;
+  sizeBytes: number;
+}
+
+export interface ListAppVersionsResult {
+  app: {
+    id: string;
+    name: string;
+    handle: string;
+    version: number;
+  };
+  versions: AppVersion[];
+}
+
+export interface RevertAppVersionResult {
+  success: boolean;
+  appId: string;
+  revisionId: string;
+  handle: string;
+  name: string;
+  fromVersion: number;
+  previousLiveVersion: number;
+  newVersion: number;
+  revision: number;
+  message: string;
+}
+
 export type AppListScope = "owned" | "system";
 
 export type PublicationStatus =
@@ -358,15 +402,39 @@ export async function getAppCode(appId: string): Promise<AppCode> {
  */
 export async function pushAppCode(
   appId: string,
-  code: string,
-  commitMessage: string,
-  files?: Record<string, string>
+  payload: PushPayload
 ): Promise<PushResult> {
-  const body: Record<string, unknown> = { code, commitMessage };
-  if (files) {
-    body.files = files;
-  }
-  return apiRequest<PushResult>("PUT", `/api/developer/apps/${appId}/code`, body);
+  return apiRequest<PushResult>("PUT", `/api/developer/apps/${appId}/code`, {
+    ...payload,
+  });
+}
+
+/**
+ * List published versions for an app.
+ */
+export async function listAppVersions(appId: string): Promise<ListAppVersionsResult> {
+  return apiRequest<ListAppVersionsResult>(
+    "GET",
+    `/api/developer/apps/${appId}/versions`
+  );
+}
+
+/**
+ * Revert an app to an earlier published version.
+ */
+export async function revertAppToVersion(
+  appId: string,
+  targetVersion: number,
+  commitMessage?: string
+): Promise<RevertAppVersionResult> {
+  return apiRequest<RevertAppVersionResult>(
+    "POST",
+    `/api/developer/apps/${appId}/versions`,
+    {
+      version: targetVersion,
+      ...(commitMessage ? { commitMessage } : {}),
+    }
+  );
 }
 
 /**

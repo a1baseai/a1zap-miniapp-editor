@@ -6,6 +6,8 @@ It is a compatibility guide for host surfaces and platform chrome. It is not a b
 
 It covers `/feed`, app show pages, shared-session pages, the create and edit flows, and the post-publish share toolkit.
 
+When a change affects internal app layout, pair this guide with [MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md](MINI_APP_MOBILE_NATIVE_DESIGN_GUIDE.md). Host surfaces already provide outer chrome, sharing, comments, maker attribution, and feed overlays; internal app UI should stay compact and app-native.
+
 ## Core Rule
 
 When you use this guide against an existing app:
@@ -13,6 +15,7 @@ When you use this guide against an existing app:
 - preserve the app's internal layout and interaction model
 - let host surfaces provide the outer chrome they already own
 - add required metadata, share flows, media slots, and shell compatibility without rebuilding the runtime UI
+- reserve space for host overlays and floating controls so they do not cover the app's own content at phone widths
 - only do a broader visual reskin when the task explicitly asks for one
 
 ## Surface Overview
