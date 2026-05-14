@@ -3,6 +3,8 @@ import path from "path";
 import {
   saveConfig,
   getConfig,
+  getApiKey,
+  getApiKeySource,
   getWorkspace,
   CONFIG_FILE,
   DEFAULT_WORKSPACE,
@@ -96,12 +98,16 @@ export async function setWorkspaceCommand(workspacePath: string): Promise<void> 
  * Show current configuration
  */
 export async function showConfigCommand(): Promise<void> {
-  const config = getConfig();
+  const apiKey = getApiKey();
+  const apiKeySource = getApiKeySource();
   const workspace = getWorkspace();
   const isDefaultWorkspace = workspace === DEFAULT_WORKSPACE;
+  const apiKeyStatus = apiKey
+    ? `${chalk.green("configured")}${apiKeySource ? chalk.dim(` (${apiKeySource})`) : ""}`
+    : chalk.yellow("not set");
 
   console.log("\n" + chalk.bold("Current Configuration:"));
-  console.log(`  API Key:   ${config.apiKey ? chalk.green("configured") : chalk.yellow("not set")}`);
+  console.log(`  API Key:   ${apiKeyStatus}`);
   console.log(`  Workspace: ${chalk.cyan(workspace)}${isDefaultWorkspace ? chalk.dim(" (default)") : ""}`);
   console.log(`  Config:    ${CONFIG_FILE}`);
   console.log("");

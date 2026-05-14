@@ -95,6 +95,32 @@ npm install -g a1zap-miniapp-editor
 
 </details>
 
+## Hermes Agent Skill
+
+This repo includes a Hermes skill at `hermes-skills/a1zap-miniapp-editor/SKILL.md`.
+
+Install it locally while developing:
+
+```bash
+mkdir -p ~/.hermes/skills/development
+cp -R hermes-skills/a1zap-miniapp-editor ~/.hermes/skills/development/
+hermes skills list | grep a1zap
+```
+
+Or install the single-file skill from GitHub after it has been published:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/a1baseai/a1zap-miniapp-editor/main/hermes-skills/a1zap-miniapp-editor/SKILL.md --name a1zap-miniapp-editor
+```
+
+For Hermes sessions, prefer environment-based auth so secrets do not need to appear in prompts or shell history:
+
+```bash
+export A1ZAP_API_KEY="your-developer-api-key"
+# Optional admin workflows:
+export A1ZAP_ADMIN_API_KEY="your-admin-api-key"
+```
+
 ## Setup
 
 Configure your API key:
@@ -372,7 +398,12 @@ git pull --rebase
 
 ## Environment Variables
 
+- `A1ZAP_API_KEY` - API key for non-interactive use, including agents and CI. When set, it is used instead of the key saved by `a1zap config`.
 - `A1ZAP_API_URL` - Override the API URL (default: https://a1zap.com)
+- `A1ZAP_WORKSPACE` - Override the local app workspace path.
+- `A1ZAP_ADMIN_API_KEY` - Admin CLI API key. Falls back to `A1ZAP_API_KEY` if unset.
+- `A1ZAP_ADMIN_API_URL` - Admin CLI API URL. Falls back to `A1ZAP_API_URL` if unset.
+- `A1ZAP_ADMIN_WORKSPACE` - Admin CLI workspace path. Falls back to `A1ZAP_WORKSPACE` if unset.
 
 ## Uninstall
 
