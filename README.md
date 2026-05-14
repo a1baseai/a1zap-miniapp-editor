@@ -97,7 +97,7 @@ npm install -g a1zap-miniapp-editor
 
 ## Hermes Agent Skill
 
-This repo includes a Hermes skill at `hermes-skills/a1zap-miniapp-editor/SKILL.md`.
+This repo includes a Hermes skill at `hermes-skills/a1zap-miniapp-editor/SKILL.md` for mini app pull/edit/push workflows, agent docs, and version rollback commands.
 
 Install it locally while developing:
 

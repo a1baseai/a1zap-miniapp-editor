@@ -1,7 +1,7 @@
 ---
 name: a1zap-miniapp-editor
-description: Build, edit, preview, and publish A1Zap mini apps through the a1zap CLI.
-version: 1.0.0
+description: Build, edit, preview, publish, and revert A1Zap mini apps through the a1zap CLI.
+version: 1.1.0
 author: A1Zap
 license: MIT
 platforms: [macos, linux, windows]
@@ -17,7 +17,7 @@ required_environment_variables:
   - name: A1ZAP_API_KEY
     prompt: A1Zap developer API key
     help: Use this for authenticated a1zap CLI commands without storing the key in command history.
-    required_for: listing, pulling, and pushing user mini apps
+    required_for: listing, pulling, pushing, and reverting user mini apps
   - name: A1ZAP_ADMIN_API_KEY
     prompt: A1Zap admin API key
     help: Optional; only needed for a1zap-admin create, copy, attach, and update workflows.
@@ -27,7 +27,7 @@ required_environment_variables:
 
 ## When to Use
 
-Use this skill when the user wants to create, inspect, edit, preview, or publish an A1Zap mini app, or asks about the `a1zap` / `a1zap-admin` CLI.
+Use this skill when the user wants to create, inspect, edit, preview, publish, list versions for, or roll back an A1Zap mini app, or asks about the `a1zap` / `a1zap-admin` CLI.
 
 Prefer the CLI plus local files. Do not build a custom Hermes tool unless the task needs Hermes-native auth flows, binary streaming, or real-time integration beyond shell commands.
 
@@ -40,11 +40,14 @@ Prefer the CLI plus local files. Do not build a custom Hermes tool unless the ta
 | Install CLI on Windows PowerShell | `irm https://raw.githubusercontent.com/a1baseai/a1zap-miniapp-editor/main/install.ps1 \| iex` |
 | Show config | `a1zap config` |
 | List apps | `a1zap list` |
-| Pull app with agent docs | `a1zap pull @handle --agent-docs` |
-| Pull into current directory | `a1zap pull @handle --here --agent-docs` |
+| Pull app with agent docs | `a1zap pull @handle` |
+| Pull into current directory | `a1zap pull @handle --here` |
+| Safely merge remote code | `a1zap pull --merge @handle` |
 | Start preview | `a1zap dev @handle -p 4321` |
 | Print local app path | `a1zap open @handle` |
 | Push changes | `a1zap push @handle -m "message"` |
+| List published versions | `a1zap versions @handle` |
+| Revert to earlier version | `a1zap revert @handle v12 -m "Revert to stable v12"` |
 | Install admin CLI | `curl -fsSL https://raw.githubusercontent.com/a1baseai/a1zap-miniapp-editor/main/install-admin.sh \| bash` |
 | Admin create | `a1zap-admin create handle --name "Name"` |
 | Admin copy | `a1zap-admin copy @source new-handle` |
@@ -67,11 +70,27 @@ If env auth is unavailable, ask the user to configure the CLI outside the chat o
 1. Check that Node.js 18+ and the CLI are available with `node --version` and `a1zap --help`.
 2. If `a1zap` is missing, tell the user the install command. Run the installer only when the user asked you to set up the machine.
 3. Confirm authentication with `a1zap config` or a harmless `a1zap list`.
-4. For existing apps, pull with `a1zap pull @handle --agent-docs` unless the user wants a specific directory. Use `--here` or `--dir <path>` when appropriate.
+4. For existing apps, pull with `a1zap pull @handle` unless the user wants a specific directory. Pull refreshes `agent-docs/` by default. Use `--here` or `--dir <path>` when appropriate.
 5. Open the local app folder with `a1zap open @handle`, then inspect `AGENTS.md` and the relevant files in `agent-docs/` before editing.
 6. Preserve the existing app's visual identity unless the user explicitly asks for a redesign.
 7. Use `a1zap dev @handle -p <port>` for local preview and hot reload.
 8. Before `a1zap push`, summarize the changes and ask for confirmation because push updates the remote A1Zap app.
+
+## Version Rollback
+
+Use the built-in version commands when the user asks to roll back, restore, revert, or inspect prior published versions of a mini app.
+
+1. List versions with `a1zap versions @handle`, or run `a1zap versions` from inside a pulled app folder.
+2. Confirm the target version with the user unless they already named an exact version such as `v12`.
+3. Revert with `a1zap revert @handle v12 -m "Revert to stable v12"`, or `a1zap revert v12 -m "..."` from inside the app folder.
+4. After reverting, run `a1zap pull --merge @handle` for an existing local copy so the workspace catches up to the new remote latest version without clobbering local edits.
+
+Important rollback semantics:
+
+- Revert publishes the selected older version as a new latest version. Version numbers keep moving forward; it does not delete history.
+- `a1zap rollback` is an alias for `a1zap revert`.
+- Do not manually edit `a1zap.json` version numbers or try to recreate old code by hand when the version API can restore it.
+- Ask before running `a1zap revert` / `a1zap rollback` because it changes the live remote mini app.
 
 ## Mini App Coding Guidance
 
@@ -109,9 +128,10 @@ Ask before running admin commands that create, copy, attach, change publication 
 
 - Missing auth: use `A1ZAP_API_KEY` / `A1ZAP_ADMIN_API_KEY` in Hermes, or ask the user to run `a1zap config`.
 - Wrong workspace: check `a1zap config` and `a1zap open @handle`; use `A1ZAP_WORKSPACE` or `a1zap config --workspace <path>` if needed.
-- Existing local app: `a1zap pull @handle --agent-docs` refreshes docs only. Use `--force` only when intentionally overwriting local app files.
+- Existing local app: `a1zap pull @handle` refreshes docs only. Use `--merge` to safely bring in newer remote code, or `--force` only when intentionally overwriting local app files.
+- Need an older published app state: use `a1zap versions` then `a1zap revert`; do not try to reconstruct old versions manually.
 - Dev server port conflict: retry with `a1zap dev @handle -p 4322` or another free port.
-- Remote side effects: `push`, admin `create`, `copy`, `attach`, and publication changes should not run without user confirmation.
+- Remote side effects: `push`, `revert`/`rollback`, admin `create`, `copy`, `attach`, and publication changes should not run without user confirmation.
 
 ## Verification
 
@@ -120,5 +140,6 @@ After setup or edits, verify with the smallest useful command:
 - CLI setup: `a1zap --help` and `a1zap config`
 - Auth/listing: `a1zap list`
 - Local app path: `a1zap open @handle`
+- Version history: `a1zap versions @handle`
 - Preview: `a1zap dev @handle -p 4321`, then inspect the browser preview
-- Before publish: review changed files, run the preview, and confirm the push message with the user
+- Before publish or rollback: review changed files or target version, run the preview when applicable, and confirm the push/revert message with the user
